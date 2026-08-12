@@ -1,88 +1,77 @@
 package lexer
 
-type Queue[T any] struct {
-	buf  []T
-	head int
-	size int
+import (
+	"slices"
+	"unicode"
+)
+
+// ---------------------------- Characters ----------------------------
+
+/* from https://go.dev/ref/spec#Characters
+ The following terms are used to denote specific Unicode character categories:
+
+newline        = the Unicode code point U+000A .
+unicode_char   = an arbitrary Unicode code point except newline.
+unicode_letter = a Unicode code point categorized as "Letter"  .
+unicode_digit  = a Unicode code point categorized as "Number, decimal digit"  .
+
+In The Unicode Standard 8.0, Section 4.5 "General Category" defines a set of character categories.
+Go treats all characters in any of the Letter categories Lu, Ll, Lt, Lm, or Lo as Unicode letters,
+and those in the Number category Nd as Unicode digits.
+*/
+
+func isUnicodeLetter(c rune) bool {
+	return unicode.In(c, unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo)
 }
 
-func NewQueue[T any](capacity int) *Queue[T] {
-	if capacity <= 0 {
-		panic("capacity must be positive")
-	}
-
-	return &Queue[T]{
-		buf: make([]T, capacity),
-	}
+func isNewline(c rune) bool {
+	return c == '\u000A'
 }
 
-func (q *Queue[T]) Len() int {
-	return q.size
+func isWhitespaceNonNewline(c rune) bool {
+	return slices.Contains([]rune{'\u0020', '\u0009', '\u000D'}, c)
 }
 
-func (q *Queue[T]) Cap() int {
-	return len(q.buf)
+func isWhitespace(c rune) bool {
+	return isNewline(c) || isWhitespaceNonNewline(c)
 }
 
-func (q *Queue[T]) Empty() bool {
-	return q.size == 0
+func isUnicodeChar(c rune) bool {
+	return !isNewline(c)
 }
 
-func (q *Queue[T]) Push(x T) {
-	if q.size == len(q.buf) {
-		q.grow()
-	}
-
-	tail := (q.head + q.size) % len(q.buf)
-	q.buf[tail] = x
-	q.size++
+func isUnicodeDigit(c rune) bool {
+	return unicode.Is(unicode.Nd, c)
 }
 
-func (q *Queue[T]) Pop() T {
-	if q.size == 0 {
-		panic("pop from empty queue")
-	}
+// ---------------------------- Letters and Digits ----------------------------
 
-	x := q.buf[q.head]
+/* from https://go.dev/ref/spec#Letters_and_digits
+The underscore character _ (U+005F) is considered a lowercase letter.
 
-	// Clear the slot so references can be garbage-collected.
-	var zero T
-	q.buf[q.head] = zero
+letter        = unicode_letter | "_" .
+decimal_digit = "0" … "9" .
+binary_digit  = "0" | "1" .
+octal_digit   = "0" … "7" .
+hex_digit     = "0" … "9" | "A" … "F" | "a" … "f" .
+*/
 
-	q.head = (q.head + 1) % len(q.buf)
-	q.size--
-
-	return x
+func isLetter(c rune) bool {
+	return isUnicodeLetter(c) || c == '_'
 }
 
-// At returns the i-th element in queue order.
-// At(0) is the front, At(Len()-1) is the back.
-func (q *Queue[T]) At(i int) T {
-	if i < 0 || i >= q.size {
-		panic("queue index out of range")
-	}
-
-	return q.buf[(q.head+i)%len(q.buf)]
+func isDecimalDigit(c rune) bool {
+	return '0' <= c && c <= '9'
 }
 
-// AtPtr returns a pointer to the i-th element.
-// The pointer becomes invalid if the queue grows or the element
-// is removed.
-func (q *Queue[T]) AtPtr(i int) *T {
-	if i < 0 || i >= q.size {
-		panic("queue index out of range")
-	}
-
-	return &q.buf[(q.head+i)%len(q.buf)]
+func isBinaryDigit(c rune) bool {
+	return c == '0' || c == '1'
 }
 
-func (q *Queue[T]) grow() {
-	newBuf := make([]T, len(q.buf)*2)
+func isOctalDigit(c rune) bool {
+	return '0' <= c && c <= '7'
+}
 
-	for i := 0; i < q.size; i++ {
-		newBuf[i] = q.buf[(q.head+i)%len(q.buf)]
-	}
-
-	q.buf = newBuf
-	q.head = 0
+func isHexDigit(c rune) bool {
+	return isDecimalDigit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
 }

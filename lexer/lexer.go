@@ -2,8 +2,6 @@ package lexer
 
 import (
 	"errors"
-	"slices"
-	"unicode"
 )
 
 type Lexer struct {
@@ -18,6 +16,8 @@ func New(src []rune) *Lexer {
 		src: src,
 	}
 }
+
+// ---------------------------- Utility ----------------------------
 
 func (l *Lexer) peekNextChar() rune {
 	return l.peekNextN(1)
@@ -56,81 +56,47 @@ func (l *Lexer) peekNextN(offset int) rune {
 	return ('\u0000')
 }
 
-// ---------------------------- Characters ----------------------------
-
-func isUnicodeLetter(c rune) bool {
-	return unicode.In(c, unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo)
-}
-
-func isNewline(c rune) bool {
-	return c == '\u000A'
-}
-
-func isWhitespaceNonNewline(c rune) bool {
-	return slices.Contains([]rune{'\u0020', '\u0009', '\u000D'}, c)
-}
-
-func isWhitespace(c rune) bool {
-	return isNewline(c) || isWhitespaceNonNewline(c)
-}
-
-func isUnicodeChar(c rune) bool {
-	return !isNewline(c)
-}
-
-func isUnicodeDigit(c rune) bool {
-	return unicode.Is(unicode.Nd, c)
-}
-
-// ---------------------------- Letters and Digits ----------------------------
-
-func isLetter(c rune) bool {
-	return isUnicodeLetter(c) || c == '\u005F'
-}
-
-func isDecimalDigit(c rune) bool {
-	return '0' <= c && 'c' <= '9'
-}
-
-func isBinaryDigit(c rune) bool {
-	return c == '0' || c == '1'
-}
-
-func isOctalDigit(c rune) bool {
-	return '0' <= c && c <= '7'
-}
-
-func isHexDigit(c rune) bool {
-	return isDecimalDigit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F')
-}
-
-// ---------------------------- Lexical element ----------------------------
+// ---------------------------- Comments ----------------------------
+/* From https://go.dev/ref/spec#Comments
+Comments serve as program documentation. There are two forms:
+	Line comments start with the character sequence // and stop at the end of the line.
+  General comments start with the character sequence /* and stop with the first subsequent character sequence *\/.
+A general comment containing no newlines acts like a space. Any other comment acts like a newline.
+*/
 
 // Skip over line comment, then insert a semicolon as the next character.
-//
-// We assume that the first '/' is consumed (essentially always assume the
-// first element is consumed)
 func (l *Lexer) getLineComment() {
+	l.getNextChar()
 	l.getNextChar()
 
 	c := l.getNextChar()
 	for !isNewline(c) {
 		if c == '\u0000' {
-			l.src = append(l.src, ';')
+			l.extraBuf = '\n'
 			return
 		}
 		c = l.getNextChar()
 	}
-	l.extraBuf = ';'
+	// invariant
+	if l.extraBuf != '\u0000' {
+		panic("null extrabuf invariant not satisfied")
+	}
+
+	// the idea of this newline is that we have consumed the newline
+	// without applying any newline logic here (semicolon injection,
+	// line count, etc.). Thus we add one newline so that our lexer
+	// lexes the next newline content.
+	l.extraBuf = '\n'
 }
 
 // Skips over the comment block, and inserts a semicolon if
 // the comment is multi-line.
-//
-// We assume that the first '/' is consumed (essentially always assume the
-// first element is consumed)
 func (l *Lexer) getGeneralComment() error {
 	hasNewLine := false
+
+	// skip over the ['/', '*']
+	l.getNextChar()
+	l.getNextChar()
 
 	c1, c2 := l.getNextChar(), l.peekNextChar()
 	for c1 != '*' || c2 != '/' {
@@ -141,9 +107,17 @@ func (l *Lexer) getGeneralComment() error {
 		c1, c2 = l.getNextChar(), l.peekNextChar()
 	}
 
-	// inject semicolon if multi line
+	// inject corresponding whitespace char.
+	// We note that there is no way that l.extraBuf is occcupied here due to the first 2 getNextChar's.
+	if l.extraBuf != '\u0000' {
+		panic("null extrabuf invariant not satisfied")
+	}
+
+	// refer to the spec for how block comment works
 	if hasNewLine {
-		l.extraBuf = ';'
+		l.extraBuf = '\n'
+	} else {
+		l.extraBuf = ' '
 	}
 
 	return nil
