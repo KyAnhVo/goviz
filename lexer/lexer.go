@@ -9,9 +9,10 @@ type Lexer struct {
 	extraBuf           rune
 	ptr                int
 	canInsertSemicolon bool
+	pos                Pos
 }
 
-func New(src []rune) *Lexer {
+func NewLexer(src []rune) *Lexer {
 	return &Lexer{
 		src: src,
 	}
@@ -20,25 +21,49 @@ func New(src []rune) *Lexer {
 // ---------------------------- Utility ----------------------------
 
 func (l *Lexer) peekNextChar() rune {
-	return l.peekNextN(1)
+	return l.peekOffset(1)
 }
 
-func (l *Lexer) getNextChar() rune {
+func (l *Lexer) getNextChar() (rune, Pos) {
 	c := l.peekNextChar()
 
 	// if not at end then push
+	var currentPos Pos
 	if c != '\u0000' {
 		if l.extraBuf != '\u0000' {
+			currentPos = SyntheticPos
 			l.extraBuf = '\u0000'
 		} else {
+			currentPos = l.adjustPos(c)
 			l.ptr += 1
 		}
+	} else {
+		currentPos = EofPos
 	}
 
-	return c
+	return c, currentPos
 }
 
-func (l *Lexer) peekNextN(offset int) rune {
+func (l *Lexer) adjustPos(c rune) Pos {
+	oldColCount := l.pos.column
+
+	if isNewline(c) {
+		l.pos.column = -1
+		l.pos.line += 1
+	} else {
+		l.pos.column += 1
+	}
+	l.pos.pos += 1
+
+	semanticPos := l.pos
+	if semanticPos.column == -1 {
+		semanticPos.column = oldColCount + 1
+		semanticPos.line -= 1
+	}
+	return semanticPos
+}
+
+func (l *Lexer) peekOffset(offset int) rune {
 	if offset == 0 {
 		panic("offset must be positive")
 	}
@@ -69,24 +94,21 @@ func (l *Lexer) getLineComment() {
 	l.getNextChar()
 	l.getNextChar()
 
-	c := l.getNextChar()
+	// the reason for peek-check-get is that we save the newline for later.
+	c := l.peekNextChar()
 	for !isNewline(c) {
+		l.getNextChar()
 		if c == '\u0000' {
 			l.extraBuf = '\n'
 			return
 		}
-		c = l.getNextChar()
+		c = l.peekNextChar()
 	}
+
 	// invariant
 	if l.extraBuf != '\u0000' {
 		panic("null extrabuf invariant not satisfied")
 	}
-
-	// the idea of this newline is that we have consumed the newline
-	// without applying any newline logic here (semicolon injection,
-	// line count, etc.). Thus we add one newline so that our lexer
-	// lexes the next newline content.
-	l.extraBuf = '\n'
 }
 
 // Skips over the comment block, and inserts a semicolon if
@@ -98,14 +120,17 @@ func (l *Lexer) getGeneralComment() error {
 	l.getNextChar()
 	l.getNextChar()
 
-	c1, c2 := l.getNextChar(), l.peekNextChar()
+	c1, c2 := l.peekNextChar(), l.peekOffset(2)
 	for c1 != '*' || c2 != '/' {
+		l.getNextChar()
 		if c1 == '\u0000' {
 			return errors.New("comment not terminated")
 		}
 		hasNewLine = isNewline(c1)
-		c1, c2 = l.getNextChar(), l.peekNextChar()
+		c1, c2 = l.peekNextChar(), l.peekOffset(2)
 	}
+	l.getNextChar()
+	l.getNextChar()
 
 	// inject corresponding whitespace char.
 	// We note that there is no way that l.extraBuf is occcupied here due to the first 2 getNextChar's.
