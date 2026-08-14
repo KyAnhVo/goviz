@@ -2,65 +2,149 @@ package lexer
 
 import (
 	"errors"
+	"fmt"
+	"slices"
 )
 
 type Lexer struct {
-	src                []rune
+	src []rune
+	ptr int
+
 	extraBuf           rune
-	ptr                int
+	currentChar        rune
 	canInsertSemicolon bool
-	pos                Pos
+
+	prevLineLen int
+	pos         Pos
 }
 
-func NewLexer(src []rune) *Lexer {
-	return &Lexer{
-		src: src,
+func (l *Lexer) GetNextToken() (Token, Pos, error) {
+	for {
+		c1 := l.peekNextChar()
+		c2 := l.peekOffset(2)
+		//	c3 := l.peekOffset(3)
+
+		var token Token
+		var pos Pos
+		if c1 == '\u0000' {
+			if l.canInsertSemicolon {
+				// endline and synthetic semicolon has same position
+				pos = l.getCurrentPos()
+				pos.column += 1
+				token = TokenSemicolon
+			} else {
+				token = TokenEOF
+				pos = PosEOF
+			}
+		} else if isWhitespaceNonNewline(c1) {
+			l.getNextChar()
+			continue
+		} else if isNewline(c1) {
+			if l.canInsertSemicolon {
+				pos = l.getCurrentPos()
+				pos.column += 1
+				token = TokenSemicolon
+			} else {
+				l.getNextChar()
+				continue
+			}
+		} else if isLetter(c1) {
+			token, pos = l.getIdentifierOrKeyword()
+		} else if c1 == '/' && c2 == '/' {
+			l.getLineComment()
+			continue
+		} else if c1 == '/' && c2 == '*' {
+			err := l.getGeneralComment()
+			if err != nil {
+				return TokenErr, PosErr, fmt.Errorf(
+					"Error lexing: line %d, column %d, position %d: %w",
+					pos.line, pos.column, pos.pos, err,
+				)
+			}
+			continue
+		} else {
+			return TokenErr, PosErr, fmt.Errorf(
+				"Error lexing: line %d, column %d, position %d: %w",
+				pos.line, pos.column, pos.pos,
+				errors.New("Uncategorized character: "+string(c1)),
+			)
+		}
+
+		l.setupSemicolonInsertNewline(token)
+		return token, pos, nil
 	}
 }
 
 // ---------------------------- Utility ----------------------------
+
+func NewLexer(src []rune) *Lexer {
+	return &Lexer{
+		src: src,
+		ptr: 0,
+
+		extraBuf:           '\u0000',
+		currentChar:        '\u0000',
+		canInsertSemicolon: false,
+
+		pos: Pos{
+			line:   1,
+			column: 0,
+			pos:    0,
+		},
+	}
+}
 
 func (l *Lexer) peekNextChar() rune {
 	return l.peekOffset(1)
 }
 
 func (l *Lexer) getNextChar() (rune, Pos) {
-	c := l.peekNextChar()
+	l.currentChar = l.peekNextChar()
 
-	// if not at end then push
 	var currentPos Pos
-	if c != '\u0000' {
+	if l.currentChar != '\u0000' {
 		if l.extraBuf != '\u0000' {
-			currentPos = SyntheticPos
+			// case 1: extrabuf is nonempty.
+			// Then we reset extrabuf
+			currentPos = PosSynthetic
 			l.extraBuf = '\u0000'
 		} else {
-			currentPos = l.adjustPos(c)
+			// case 2: extrabuf is empty.
+			// Thus next char src[ptr].
+			currentPos = l.adjustPos(l.currentChar)
 			l.ptr += 1
 		}
 	} else {
-		currentPos = EofPos
+		currentPos = PosEOF
 	}
 
-	return c, currentPos
+	return l.currentChar, currentPos
+}
+
+func (l *Lexer) getCurrentPos() Pos {
+	semanticPos := l.pos
+	if semanticPos.column == 0 {
+		semanticPos.column = l.prevLineLen + 1
+		semanticPos.line -= 1
+	}
+	return semanticPos
+}
+
+func (l *Lexer) getCurrentChar() (rune, Pos) {
+	return l.currentChar, l.getCurrentPos()
 }
 
 func (l *Lexer) adjustPos(c rune) Pos {
-	oldColCount := l.pos.column
-
 	if isNewline(c) {
-		l.pos.column = -1
+		l.prevLineLen = l.pos.column
+		l.pos.column = 0
 		l.pos.line += 1
 	} else {
 		l.pos.column += 1
 	}
 	l.pos.pos += 1
 
-	semanticPos := l.pos
-	if semanticPos.column == -1 {
-		semanticPos.column = oldColCount + 1
-		semanticPos.line -= 1
-	}
-	return semanticPos
+	return l.getCurrentPos()
 }
 
 func (l *Lexer) peekOffset(offset int) rune {
@@ -68,11 +152,14 @@ func (l *Lexer) peekOffset(offset int) rune {
 		panic("offset must be positive")
 	}
 
-	next := l.ptr + offset
+	// induction base case: for next char, offset = 1,
+	// thus we must subtract from offset
+	// inductive step: trivial
+	next := l.ptr + offset - 1
 	if l.extraBuf != '\u0000' {
 		next -= 1
 	}
-	if next <= l.ptr { // if this is true, l.extraBuffer must be nonempty
+	if next < l.ptr { // if this is true, l.extraBuffer must be nonempty
 		return l.extraBuf
 	}
 	if len(l.src) > next {
@@ -81,69 +168,31 @@ func (l *Lexer) peekOffset(offset int) rune {
 	return ('\u0000')
 }
 
-// ---------------------------- Comments ----------------------------
-/* From https://go.dev/ref/spec#Comments
-Comments serve as program documentation. There are two forms:
-	Line comments start with the character sequence // and stop at the end of the line.
-  General comments start with the character sequence /* and stop with the first subsequent character sequence *\/.
-A general comment containing no newlines acts like a space. Any other comment acts like a newline.
-*/
-
-// Skip over line comment, then insert a semicolon as the next character.
-func (l *Lexer) getLineComment() {
-	l.getNextChar()
-	l.getNextChar()
-
-	// the reason for peek-check-get is that we save the newline for later.
-	c := l.peekNextChar()
-	for !isNewline(c) {
-		l.getNextChar()
-		if c == '\u0000' {
-			l.extraBuf = '\n'
-			return
-		}
-		c = l.peekNextChar()
+// Setup if the next newline must add a semicolon before.
+// refer to: rule 1 of https://go.dev/ref/spec#Semicolons
+//
+// When the input is broken into tokens, a semicolon is
+// automatically inserted into the token stream immediately
+// after a line's final token if that token is
+//
+//	an identifier
+//	an integer, floating-point, imaginary, rune, or string literal
+//	one of the keywords break, continue, fallthrough, or return
+//	one of the operators and punctuation ++, --, ), ], or }
+func (l *Lexer) setupSemicolonInsertNewline(token Token) {
+	insertSemicolonTokenTypes := []TokenType{
+		TokenTypeIdentifier, TokenTypeFloatLiteral,
+		TokenTypeImaginaryLiteral, TokenTypeIntLiteral,
+		TokenTypeStringLiteral, TokenTypeRuneLiteral,
+	}
+	insertSemicolonTokens := []Token{
+		TokenKeywordBreak, TokenKeywordReturn,
+		TokenKeywordFallthrough, TokenIncrement,
+		TokenDecrement, TokenRBrace,
+		TokenRBracket, TokenRParen,
 	}
 
-	// invariant
-	if l.extraBuf != '\u0000' {
-		panic("null extrabuf invariant not satisfied")
-	}
-}
-
-// Skips over the comment block, and inserts a semicolon if
-// the comment is multi-line.
-func (l *Lexer) getGeneralComment() error {
-	hasNewLine := false
-
-	// skip over the ['/', '*']
-	l.getNextChar()
-	l.getNextChar()
-
-	c1, c2 := l.peekNextChar(), l.peekOffset(2)
-	for c1 != '*' || c2 != '/' {
-		l.getNextChar()
-		if c1 == '\u0000' {
-			return errors.New("comment not terminated")
-		}
-		hasNewLine = isNewline(c1)
-		c1, c2 = l.peekNextChar(), l.peekOffset(2)
-	}
-	l.getNextChar()
-	l.getNextChar()
-
-	// inject corresponding whitespace char.
-	// We note that there is no way that l.extraBuf is occcupied here due to the first 2 getNextChar's.
-	if l.extraBuf != '\u0000' {
-		panic("null extrabuf invariant not satisfied")
-	}
-
-	// refer to the spec for how block comment works
-	if hasNewLine {
-		l.extraBuf = '\n'
-	} else {
-		l.extraBuf = ' '
-	}
-
-	return nil
+	l.canInsertSemicolon =
+		slices.Contains(insertSemicolonTokens, token) ||
+			slices.Contains(insertSemicolonTokenTypes, token.Type)
 }

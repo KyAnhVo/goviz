@@ -1,0 +1,57 @@
+/* Golang Identifier grammar
+refer to https://go.dev/ref/spec#Identifiers
+
+identifier = letter { letter | unicode_digit } .
+*/
+
+/* Golang Keywords
+refer to https://go.dev/ref/spec#Keywords
+
+Keywords¶
+The following keywords are reserved and may not be used as identifiers.
+
+break        default      func         interface    select
+case         defer        go           map          struct
+chan         else         goto         package      switch
+const        fallthrough  if           range        type
+continue     for          import       return       var
+*/
+
+package lexer
+
+import "strings"
+
+func (l *Lexer) getIdentifierOrKeyword() (Token, Pos) {
+	var token Token
+	var builder strings.Builder
+
+	c, pos := l.getNextChar()
+	if !isLetter(c) {
+		panic("invariant broken: " + string(c) + "is not a letter")
+	}
+	builder.WriteRune(c)
+
+	c = l.peekNextChar()
+	for isLetter(c) || isUnicodeDigit(c) {
+		l.getNextChar()
+		builder.WriteRune(c)
+		c = l.peekNextChar()
+	}
+	token.Value = builder.String()
+
+	keywordSet := map[string]struct{}{
+		"break": {}, "case": {}, "chan": {}, "const": {}, "continue": {},
+		"default": {}, "defer": {}, "else": {}, "fallthrough": {}, "for": {},
+		"func": {}, "go": {}, "goto": {}, "if": {}, "import": {},
+		"interface": {}, "map": {}, "package": {}, "range": {}, "return": {},
+		"select": {}, "struct": {}, "switch": {}, "type": {}, "var": {},
+	}
+	_, isKeyword := keywordSet[string(token.Value)]
+	if isKeyword {
+		token.Type = TokenTypeKeyword
+	} else {
+		token.Type = TokenTypeIdentifier
+	}
+
+	return token, pos
+}
