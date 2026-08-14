@@ -27,6 +27,12 @@ hex_mantissa      = [ "_" ] hex_digits "." [ hex_digits ] |
 hex_exponent      = ( "p" | "P" ) [ "+" | "-" ] decimal_digits .
 */
 
+/* Golang imaginary grammar
+refer to https://go.dev/ref/spec#Imaginary_literals
+
+imaginary_lit = (decimal_digits | int_lit | float_lit) "i" .
+*/
+
 package lexer
 
 import (
@@ -36,29 +42,13 @@ import (
 	"unicode"
 )
 
-type base int
-
-const (
-	Binary base = iota
-	Octal
-	Decimal
-	Hex
-)
-
-type numberType int
-
-const (
-	Float numberType = iota
-	Int
-)
-
 func (l *Lexer) getNumericToken() (Token, Pos, error) {
 	c1 := l.peekNextChar()
 	c2 := l.peekOffset(2)
 
-	if !isDecimalDigit(c1) {
+	if !isDecimalDigit(c1) && !(c1 == '.' && isDecimalDigit(c2)) {
 		return TokenErr, PosErr, errors.New(
-			"A numeric token must start with a decimal digit",
+			"A numeric token must start with a decimal digit or dot",
 		)
 	}
 
@@ -76,7 +66,7 @@ func (l *Lexer) getNumericToken() (Token, Pos, error) {
 func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 	// the trick here is, we recognize that, except for the dot start case,
 	// for float and non float, we all start with a <decimal_digits>. Then
-	// if there is no dot after, we safely assume that this is an int, and
+	// if there is no dot or 'e' after, we safely assume that this is an int, and
 	// check first char non 0.
 
 	var builder strings.Builder
@@ -89,16 +79,22 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 
 		digits, _, err := l.getDigits(isDecimalDigit)
 		if err != nil {
-			return TokenErr, PosErr, fmt.Errorf("getDecimalToken: %w", err)
+			return TokenErr, PosErr, fmt.Errorf("getDecimalToken: leading dot: fractional: %w", err)
 		}
 		builder.WriteString(digits)
 
 		if c = l.peekNextChar(); c == 'E' || c == 'e' {
 			exp, err := l.getExponent('e')
 			if err != nil {
-				return TokenErr, PosErr, fmt.Errorf("getDecimalToken: %w", err)
+				return TokenErr, PosErr, fmt.Errorf("getDecimalToken: leading dot: exponent: %w", err)
 			}
 			builder.WriteString(exp)
+		}
+
+		if l.peekNextChar() == 'i' {
+			builder.WriteRune('i')
+			l.getNextChar()
+			return TokenImaginaryLit(builder.String()), pos, nil
 		}
 		return TokenFloatLit(builder.String()), pos, nil
 	}
@@ -113,16 +109,23 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 	// int:   epsilon
 	// float: ("." [decimal_digits] [decimal_exponent]) | decimal_exponent
 	if c := l.peekNextChar(); c != '.' && c != 'e' && c != 'E' {
+		if l.peekNextChar() == 'i' {
+			l.getNextChar()
+			builder.WriteRune('i')
+			return TokenImaginaryLit(builder.String()), pos, nil
+		}
+
 		// Decimal integer
 		if len(digits) > 1 && digits[0] == '0' {
-			return TokenErr, PosErr, errors.New(
-				"getDecimalToken: non-zero ints cannot start with a 0",
-			)
+			for _, c := range digits {
+				if isOctalDigit(c) {
+				}
+			}
+			return TokenIntLit(digits), pos, nil
 		}
 		return TokenIntLit(builder.String()), pos, nil
 	} else {
 		// ("." [decimal_digits] [decimal_exponent]) | (decimal_exponent)
-
 		if c == '.' {
 			builder.WriteRune(c)
 			l.getNextChar()
@@ -134,6 +137,7 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 				}
 				builder.WriteString(digits)
 			}
+			c = l.peekNextChar()
 		}
 		// For the 1st branch, this acts as [decimal_exponent].
 		// For the 2nd branch, this is true via the first branch check
@@ -144,6 +148,12 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 				return TokenErr, PosErr, fmt.Errorf("getDecimalToken: %w", err)
 			}
 			builder.WriteString(exponent)
+		}
+
+		if l.peekNextChar() == 'i' {
+			l.getNextChar()
+			builder.WriteRune('i')
+			return TokenFloatLit(builder.String()), pos, nil
 		}
 		return TokenFloatLit(builder.String()), pos, nil
 	}
@@ -169,6 +179,11 @@ func (l *Lexer) getBinaryToken() (Token, Pos, error) {
 	}
 	builder.WriteString(s)
 
+	if l.peekNextChar() == 'i' {
+		l.getNextChar()
+		builder.WriteRune('i')
+		return TokenImaginaryLit(builder.String()), pos, nil
+	}
 	return TokenIntLit(builder.String()), pos, nil
 }
 
@@ -192,11 +207,54 @@ func (l *Lexer) getOctalToken() (Token, Pos, error) {
 	}
 	builder.WriteString(s)
 
+	if l.peekNextChar() == 'i' {
+		l.getNextChar()
+		builder.WriteRune('i')
+		return TokenImaginaryLit(builder.String()), pos, nil
+	}
 	return TokenIntLit(builder.String()), pos, nil
 }
 
 func (l *Lexer) getHexToken() (Token, Pos, error) {
-	panic("")
+	var builder strings.Builder
+
+	c1, pos := l.getNextChar()
+	builder.WriteRune(c1)
+
+	c2, _ := l.getNextChar()
+	builder.WriteRune(c2)
+
+	integer, fractional, err := l.hexMantissa()
+	if err != nil {
+		return TokenErr, PosErr, fmt.Errorf("getHexToken: %w", err)
+	}
+	builder.WriteString(integer)
+	builder.WriteString(fractional)
+
+	// If fractional part is nonempty but there is no p/P,
+	// it is flagged as error due to hex float requiring
+	// the exponent part.
+	if c := l.peekNextChar(); c != 'p' && c != 'P' {
+		if l.peekNextChar() == 'i' {
+			l.getNextChar()
+			builder.WriteRune('i')
+			return TokenImaginaryLit(builder.String()), pos, nil
+		}
+		return TokenIntLit(builder.String()), pos, nil
+	}
+
+	exponent, err := l.getExponent('p')
+	if err != nil {
+		return TokenErr, PosErr, fmt.Errorf("getHexToken: exponent part error: %w", err)
+	}
+	builder.WriteString(exponent)
+
+	if l.peekNextChar() == 'i' {
+		l.getNextChar()
+		builder.WriteRune('i')
+		return TokenImaginaryLit(builder.String()), pos, nil
+	}
+	return TokenFloatLit(builder.String()), pos, nil
 }
 
 // -------------------------------- utils --------------------------------
@@ -274,4 +332,62 @@ func (l *Lexer) getExponent(prefix rune) (string, error) {
 	res += digits
 
 	return res, nil
+}
+
+// the mantissa part of a hex value must be nonempty, refer to
+// start of file for grammar.
+//
+// the mantissa comprises of 2 parts: the integer and the fractional.
+// both can be empty.
+//
+// the integer, if nonempty, has the grammar
+//
+//	["_"] hexDigits
+//
+// the fractional, if nonempty, has the grammar
+//
+//	"." [hexDigits]
+//
+// the return value is (int, frac, err).
+func (l *Lexer) hexMantissa() (string, string, error) {
+	var beforeDot, fromDot strings.Builder
+
+	// Case 1: "." digits
+	if c := l.peekNextChar(); c == '.' {
+		fromDot.WriteRune(c)
+		l.getNextChar()
+		fractionalPart, _, err := l.getDigits(isHexDigit)
+		if err != nil {
+			return "", "", fmt.Errorf("hexMantissa: %w", err)
+		}
+		fromDot.WriteString(fractionalPart)
+		return "", fromDot.String(), nil
+	}
+
+	// Case 2: ["_"] digits ["." [digits]]
+	// ["_"] digits
+	if c := l.peekNextChar(); c == '_' {
+		beforeDot.WriteRune(c)
+		l.getNextChar()
+	}
+	integerPart, _, err := l.getDigits(isHexDigit)
+	if err != nil {
+		return "", "", fmt.Errorf("hexMantissa: %w", err)
+	}
+	beforeDot.WriteString(integerPart)
+
+	// ["." [digits]]
+	if c := l.peekNextChar(); c == '.' {
+		fromDot.WriteRune(c)
+		l.getNextChar()
+		if c = l.peekNextChar(); isHexDigit(c) {
+			fractionalPart, _, err := l.getDigits(isHexDigit)
+			if err != nil {
+				return "", "", fmt.Errorf("hexMantissa: %w", err)
+			}
+			fromDot.WriteString(fractionalPart)
+		}
+	}
+
+	return beforeDot.String(), fromDot.String(), nil
 }

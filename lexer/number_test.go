@@ -7,25 +7,41 @@ func TestInteger(t *testing.T) {
 		Label       string
 		Src         string
 		ExpectedNum Token
+		Err         bool
 	}
 
 	tcs := []TestCase{
-		{"decimal no dash", "42 ", TokenIntLit("42")},
-		{"decimal dash", "4_29_350 ", TokenIntLit("4_29_350")},
-		{"binary no dash", "0b01 ", TokenIntLit("0b01")},
-		{"binary dash", "0B_1011_1010_1101 ", TokenIntLit("0B_1011_1010_1101")},
-		{"octal no dash", "0o76770406 ", TokenIntLit("0o76770406")},
-		{"octal dash", "0O_0123_4567 ", TokenIntLit("0O_0123_4567")},
+		// decimal cases
+		{"decimal no dash", "42 ", TokenIntLit("42"), false},
+		{"decimal dash", "4_29_350 ", TokenIntLit("4_29_350"), false},
+
+		// binary cases
+		{"binary no dash", "0b01 ", TokenIntLit("0b01"), false},
+		{"binary dash", "0B_1011_1010_1101 ", TokenIntLit("0B_1011_1010_1101"), false},
+
+		// octal cases
+		{"octal no dash", "0o76770406 ", TokenIntLit("0o76770406"), false},
+		{"octal dash", "0O_0123_4567 ", TokenIntLit("0O_0123_4567"), false},
+
+		// hexadecimal cases
+		{"hex no dash", "0xBadFace ", TokenIntLit("0xBadFace"), false},
+		{"hex dash", "0X_bAD_fACE ", TokenIntLit("0X_bAD_fACE"), false},
+
+		// error cases
+		// TODO: implement error case
 	}
 
 	for _, tc := range tcs {
 		l := NewLexer([]rune(tc.Src))
 		token, _, err := l.getNumericToken()
+		if tc.Err && err != nil {
+			continue
+		}
 		if err != nil {
 			t.Errorf(
 				"\nTestInteger\n"+
 					"\t%s\n"+
-					"\t\terror: %s\n",
+					"\t\tError: %s",
 				tc.Label,
 				err.Error(),
 			)
@@ -39,7 +55,7 @@ func TestInteger(t *testing.T) {
 				tc.ExpectedNum,
 				token,
 			)
-		} else if l.peekNextChar() != ' ' {
+		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
 			t.Errorf(
 				"\nTestInteger\n"+
 					"\t%s\n"+
@@ -51,36 +67,116 @@ func TestInteger(t *testing.T) {
 	}
 }
 
-func TestDigits(t *testing.T) {
+func TestFloat(t *testing.T) {
 	type TestCase struct {
+		Label       string
 		Src         string
-		Num         string
-		NextChar    rune
-		VerifyDigit func(rune) bool
+		ExpectedNum Token
+		Err         bool
 	}
 
 	tcs := []TestCase{
-		{"911", "911", '\u0000', isDecimalDigit},
-		{"0010.425", "0010", '.', isBinaryDigit},
-		{"36_69_420_abcd", "36_69_420_abcd", '\u0000', isHexDigit},
-		{"24_67.3579", "24_67", '.', isOctalDigit},
+		// decimal cases
+		{"decimal integer dot", "42. ", TokenFloatLit("42."), false},
+		{"decimal dot fractional", ".4_29_350 ", TokenFloatLit(".4_29_350"), false},
+		{"decimal integer dot fractional", "123.456 ", TokenFloatLit("123.456"), false},
+		{"decimal integer exponent", "123e+456 ", TokenFloatLit("123e+456"), false},
+		{"decimal integer dot exponent", "123.e-456 ", TokenFloatLit("123.e-456"), false},
+		{"decimal integer dot fractional exponent", "123.456e789 ", TokenFloatLit("123.456e789"), false},
+		{"decimal dot fractional exponent", ".123e-456 ", TokenFloatLit(".123e-456"), false},
+
+		// hexadecimal cases
+		{"hex integer ", "0X020P-245 ", TokenFloatLit("0X020P-245"), false},
+		{"hex integer dot", "0x_020.p+1 ", TokenFloatLit("0x_020.p+1"), false},
+		{"hex integer dot fractional", "0x_Bad.Facep3 ", TokenFloatLit("0x_Bad.Facep3"), false},
+		{"hex dot fractional", "0x.Bad_Facep-3 ", TokenFloatLit("0x.Bad_Facep-3"), false},
+
+		// error cases
+		// TODO: implement error cases
 	}
 
 	for _, tc := range tcs {
 		l := NewLexer([]rune(tc.Src))
-		s, _, err := l.getDigits(tc.VerifyDigit)
+		token, _, err := l.getNumericToken()
+		if tc.Err && err != nil {
+			continue
+		}
 		if err != nil {
-			t.Errorf("TestDigits: Error:\n%s\n", err.Error())
-		} else if s != tc.Num {
 			t.Errorf(
-				"TestDigits: Digits not the same:\n%s != %s\n",
-				tc.Num, s,
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\tError: %s",
+				tc.Label,
+				err.Error(),
 			)
-		} else if l.peekNextChar() != tc.NextChar {
+		} else if token != tc.ExpectedNum {
 			t.Errorf(
-				"TestDigits: Next char wrong:\n%c != %c\n",
-				tc.NextChar, l.peekNextChar(),
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\tExpected: %s\n"+
+					"\t\tGot: %s\n",
+				tc.Label,
+				formatToken(tc.ExpectedNum),
+				formatToken(token),
+			)
+		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
+			t.Errorf(
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\terror: did not advance over token, final char: %c\n",
+				tc.Label,
+				l.peekNextChar(),
 			)
 		}
 	}
+
+}
+
+func TestImaginary(t *testing.T) {
+	type TestCase struct {
+		Label       string
+		Src         string
+		ExpectedNum Token
+		Err         bool
+	}
+
+	tcs := []TestCase{
+		// TODO: add test cases
+	}
+
+	for _, tc := range tcs {
+		l := NewLexer([]rune(tc.Src))
+		token, _, err := l.getNumericToken()
+		if tc.Err && err != nil {
+			continue
+		}
+		if err != nil {
+			t.Errorf(
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\tError: %s",
+				tc.Label,
+				err.Error(),
+			)
+		} else if token != tc.ExpectedNum {
+			t.Errorf(
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\tExpected: %s\n"+
+					"\t\tGot: %s\n",
+				tc.Label,
+				formatToken(tc.ExpectedNum),
+				formatToken(token),
+			)
+		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
+			t.Errorf(
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\terror: did not advance over token, final char: %c\n",
+				tc.Label,
+				l.peekNextChar(),
+			)
+		}
+	}
+
 }
