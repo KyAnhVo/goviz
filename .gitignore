@@ -8,6 +8,10 @@
 *.so
 *.dylib
 
+# Agent stuffs
+.claude
+.claude/**
+
 # Test binary, built with `go test -c`
 *.test
 
