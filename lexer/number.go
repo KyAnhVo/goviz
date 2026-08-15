@@ -42,7 +42,7 @@ import (
 	"unicode"
 )
 
-func (l *Lexer) getNumericToken() (Token, Pos, error) {
+func (l *Lexer) getNumericLiteral() (Token, Pos, error) {
 	c1 := l.peekNextChar()
 	c2 := l.peekOffset(2)
 
@@ -118,7 +118,8 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 		// Decimal integer
 		if len(digits) > 1 && digits[0] == '0' {
 			for _, c := range digits {
-				if isOctalDigit(c) {
+				if !isOctalDigit(c) {
+					return TokenErr, PosErr, errors.New("decimal int cannot lead with 0")
 				}
 			}
 			return TokenIntLit(digits), pos, nil

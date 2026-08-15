@@ -3,7 +3,8 @@ package lexer
 import (
 	"errors"
 	"fmt"
-	"slices"
+
+	"github.com/KyAnhVo/goviz/util"
 )
 
 type Lexer struct {
@@ -18,15 +19,38 @@ type Lexer struct {
 	pos         Pos
 }
 
+var singleCharOperators = util.NewSet([]rune{
+	'+', '-', '*', '/', '%',
+	'^', '&', '|', '<', '>',
+	'=', '!', '~', '(', ')',
+	'{', '}', '[', ']', ',',
+	';', '.', ':',
+})
+
+var doubleCharOperators = util.NewSet([]string{
+	"<<", ">>", "&^", "+=", "-=",
+	"*=", "/=", "%=", "&=", "|=",
+	"^=", "&&", "||", "<-", "++",
+	"--", "==", "!=", "<=", ">=",
+	":=",
+})
+
+var tripleCharOperators = util.NewSet([]string{
+	"<<=", ">>=", "&^=", "...",
+})
+
 func (l *Lexer) GetNextToken() (Token, Pos, error) {
 	for {
 		c1 := l.peekNextChar()
 		c2 := l.peekOffset(2)
-		//	c3 := l.peekOffset(3)
+		c3 := l.peekOffset(3)
+
+		twoChar := string(c1) + string(c2)
+		threeChars := twoChar + string(c3)
 
 		var token Token
 		var pos Pos
-		if c1 == '\u0000' {
+		if c1 == '\u0000' { // Null and whitespace starts here ---------------------------------
 			if l.canInsertSemicolon {
 				// endline and synthetic semicolon has same position
 				pos = l.getCurrentPos()
@@ -48,23 +72,59 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 				l.getNextChar()
 				continue
 			}
-		} else if isLetter(c1) {
+		} else if isLetter(c1) { // Variable length starts here -----------------------------------
 			token, pos = l.getIdentifierOrKeyword()
-		} else if c1 == '/' && c2 == '/' {
+		} else if twoChar == "//" {
 			l.getLineComment()
 			continue
-		} else if c1 == '/' && c2 == '*' {
+		} else if twoChar == "/*" {
 			err := l.getGeneralComment()
 			if err != nil {
+				pos = l.pos
 				return TokenErr, PosErr, fmt.Errorf(
 					"Error lexing: line %d, column %d, position %d: %w",
 					pos.line, pos.column, pos.pos, err,
 				)
 			}
 			continue
+		} else if isDecimalDigit(c1) || c1 == '.' && isDecimalDigit(c2) {
+			newToken, newPos, err := l.getNumericLiteral()
+			if err != nil {
+				pos = l.pos
+				return TokenErr, PosErr, fmt.Errorf(
+					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
+					pos.line, pos.column, pos.pos, err,
+				)
+			}
+			token = newToken
+			pos = newPos
+
+		} else if tripleCharOperators.Contains(threeChars) { // 3 char start here ------------------
+			_, pos = l.getNextChar()
+			l.getNextChar()
+			l.getNextChar()
+			token = TokenOperator(threeChars)
+		} else if doubleCharOperators.Contains(twoChar) { // 2 char start here ------------------
+			_, pos = l.getNextChar()
+			l.getNextChar()
+			token = TokenOperator(twoChar)
+		} else if singleCharOperators.Contains(c1) { // 1 char start here ---------------------
+			_, pos = l.getNextChar()
+			token = TokenOperator(string(c1))
+		} else if c1 == '"' {
+			newToken, newPos, err := l.getInterpretedStringToken()
+			if err != nil {
+				pos = l.pos
+				return TokenErr, PosErr, fmt.Errorf(
+					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
+					pos.line, pos.column, pos.pos, err,
+				)
+			}
+			token, pos = newToken, newPos
 		} else {
+			pos = l.pos
 			return TokenErr, PosErr, fmt.Errorf(
-				"Error lexing: line %d, column %d, position %d: %w",
+				"Lexer.GetNextToken: line %d, column %d, position %d: %w",
 				pos.line, pos.column, pos.pos,
 				errors.New("Uncategorized character: "+string(c1)),
 			)
@@ -168,6 +228,18 @@ func (l *Lexer) peekOffset(offset int) rune {
 	return ('\u0000')
 }
 
+var insertSemicolonTokenTypes = util.NewSet([]TokenType{
+	TokenTypeIdentifier, TokenTypeFloatLiteral,
+	TokenTypeImaginaryLiteral, TokenTypeIntLiteral,
+	TokenTypeStringLiteral, TokenTypeRuneLiteral,
+})
+var insertSemicolonTokens = util.NewSet([]Token{
+	TokenKeywordBreak, TokenKeywordReturn,
+	TokenKeywordFallthrough, TokenIncrement,
+	TokenDecrement, TokenRBrace,
+	TokenRBracket, TokenRParen,
+})
+
 // Setup if the next newline must add a semicolon before.
 // refer to: rule 1 of https://go.dev/ref/spec#Semicolons
 //
@@ -180,19 +252,6 @@ func (l *Lexer) peekOffset(offset int) rune {
 //	one of the keywords break, continue, fallthrough, or return
 //	one of the operators and punctuation ++, --, ), ], or }
 func (l *Lexer) setupSemicolonInsertNewline(token Token) {
-	insertSemicolonTokenTypes := []TokenType{
-		TokenTypeIdentifier, TokenTypeFloatLiteral,
-		TokenTypeImaginaryLiteral, TokenTypeIntLiteral,
-		TokenTypeStringLiteral, TokenTypeRuneLiteral,
-	}
-	insertSemicolonTokens := []Token{
-		TokenKeywordBreak, TokenKeywordReturn,
-		TokenKeywordFallthrough, TokenIncrement,
-		TokenDecrement, TokenRBrace,
-		TokenRBracket, TokenRParen,
-	}
-
 	l.canInsertSemicolon =
-		slices.Contains(insertSemicolonTokens, token) ||
-			slices.Contains(insertSemicolonTokenTypes, token.Type)
+		insertSemicolonTokens.Contains(token) || insertSemicolonTokenTypes.Contains(token.Type)
 }

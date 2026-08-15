@@ -22,6 +22,7 @@ func TestInteger(t *testing.T) {
 		// octal cases
 		{"octal no dash", "0o76770406 ", TokenIntLit("0o76770406"), false},
 		{"octal dash", "0O_0123_4567 ", TokenIntLit("0O_0123_4567"), false},
+		{"octal start 0 no prefix 'o'", "013467 ", TokenIntLit("013467"), false},
 
 		// hexadecimal cases
 		{"hex no dash", "0xBadFace ", TokenIntLit("0xBadFace"), false},
@@ -33,7 +34,7 @@ func TestInteger(t *testing.T) {
 
 	for _, tc := range tcs {
 		l := NewLexer([]rune(tc.Src))
-		token, _, err := l.getNumericToken()
+		token, _, err := l.getNumericLiteral()
 		if tc.Err && err != nil {
 			continue
 		}
@@ -97,7 +98,7 @@ func TestFloat(t *testing.T) {
 
 	for _, tc := range tcs {
 		l := NewLexer([]rune(tc.Src))
-		token, _, err := l.getNumericToken()
+		token, _, err := l.getNumericLiteral()
 		if tc.Err && err != nil {
 			continue
 		}
@@ -146,7 +147,7 @@ func TestImaginary(t *testing.T) {
 
 	for _, tc := range tcs {
 		l := NewLexer([]rune(tc.Src))
-		token, _, err := l.getNumericToken()
+		token, _, err := l.getNumericLiteral()
 		if tc.Err && err != nil {
 			continue
 		}
