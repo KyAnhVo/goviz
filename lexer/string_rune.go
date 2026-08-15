@@ -176,7 +176,7 @@ func (l *Lexer) getRawStringToken() (Token, Pos, error) {
 	return TokenStringLit(builder.String()), pos, nil
 }
 
-func (l *Lexer) getRuneLiteralToken() (Token, Pos, error) {
+func (l *Lexer) getRuneToken() (Token, Pos, error) {
 	open, pos := l.getNextChar()
 	if open != '\'' {
 		return TokenErr, PosErr, errors.New("rune: must start with a single quote")

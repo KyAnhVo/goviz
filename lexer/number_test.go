@@ -117,8 +117,8 @@ func TestFloat(t *testing.T) {
 					"\t\tExpected: %s\n"+
 					"\t\tGot: %s\n",
 				tc.Label,
-				formatToken(tc.ExpectedNum),
-				formatToken(token),
+				FormatToken(tc.ExpectedNum),
+				FormatToken(token),
 			)
 		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
 			t.Errorf(
@@ -166,8 +166,8 @@ func TestImaginary(t *testing.T) {
 					"\t\tExpected: %s\n"+
 					"\t\tGot: %s\n",
 				tc.Label,
-				formatToken(tc.ExpectedNum),
-				formatToken(token),
+				FormatToken(tc.ExpectedNum),
+				FormatToken(token),
 			)
 		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
 			t.Errorf(

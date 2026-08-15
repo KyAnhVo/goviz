@@ -121,6 +121,26 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 				)
 			}
 			token, pos = newToken, newPos
+		} else if c1 == '\'' {
+			newToken, newPos, err := l.getRuneToken()
+			if err != nil {
+				pos = l.pos
+				return TokenErr, PosErr, fmt.Errorf(
+					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
+					pos.line, pos.column, pos.pos, err,
+				)
+			}
+			token, pos = newToken, newPos
+		} else if c1 == '`' {
+			newToken, newPos, err := l.getRawStringToken()
+			if err != nil {
+				pos = l.pos
+				return TokenErr, PosErr, fmt.Errorf(
+					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
+					pos.line, pos.column, pos.pos, err,
+				)
+			}
+			token, pos = newToken, newPos
 		} else {
 			pos = l.pos
 			return TokenErr, PosErr, fmt.Errorf(

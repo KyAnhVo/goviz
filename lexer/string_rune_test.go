@@ -24,7 +24,7 @@ func TestRune(t *testing.T) {
 	}
 	for _, tc := range tcs {
 		l := NewLexer([]rune(tc.Src))
-		token, _, err := l.getRuneLiteralToken()
+		token, _, err := l.getRuneToken()
 		if tc.Err && err != nil {
 			continue
 		}
@@ -43,8 +43,8 @@ func TestRune(t *testing.T) {
 					"\t\tExpected: %s\n"+
 					"\t\tGot: %s\n",
 				tc.Label,
-				formatToken(expectedToken),
-				formatToken(token),
+				FormatToken(expectedToken),
+				FormatToken(token),
 			)
 		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
 			t.Errorf(
@@ -99,8 +99,8 @@ func TestString(t *testing.T) {
 					"\t\tExpected: %s\n"+
 					"\t\tGot: %s\n",
 				tc.Label,
-				formatToken(expectedToken),
-				formatToken(token),
+				FormatToken(expectedToken),
+				FormatToken(token),
 			)
 		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
 			t.Errorf(

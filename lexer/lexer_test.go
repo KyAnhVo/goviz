@@ -7,36 +7,6 @@ import (
 
 // ----------------------- TEST SUITE HELPERS -----------------------
 
-func formatRune(c rune) string {
-	switch c {
-	case '\n':
-		return "<newline>"
-	case '\t':
-		return "<tab>"
-	case ' ':
-		return "<space>"
-	case '\r':
-		return "<cr>"
-	case '<':
-		return "<lessThan>"
-	case '>':
-		return "<greaterThan>"
-	default:
-		return string(c)
-	}
-}
-
-func formatToken(token Token) string {
-	var builder strings.Builder
-	builder.WriteString(string(token.Type))
-	builder.WriteRune('<')
-	for _, c := range []rune(token.Value) {
-		builder.WriteString(formatRune(c))
-	}
-	builder.WriteRune('>')
-	return builder.String()
-}
-
 func checkRune(t *testing.T, label string, want rune, got rune) {
 	t.Helper()
 	if want != got {
@@ -44,7 +14,7 @@ func checkRune(t *testing.T, label string, want rune, got rune) {
 			"\nCharacter:\n"+
 				"%s\n"+
 				"\t%s != %s\n",
-			label, formatRune(want), formatRune(got),
+			label, FormatRune(want), FormatRune(got),
 		)
 	}
 }
