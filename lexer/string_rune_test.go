@@ -1,6 +1,9 @@
 package lexer
 
-import "testing"
+import (
+	"github.com/KyAnhVo/goviz/types"
+	"testing"
+)
 
 func TestRune(t *testing.T) {
 	type TestCase struct {
@@ -36,15 +39,15 @@ func TestRune(t *testing.T) {
 				tc.Label,
 				err.Error(),
 			)
-		} else if expectedToken := TokenRuneLit(tc.Expected); token != expectedToken {
+		} else if expectedToken := types.TokenRuneLit(tc.Expected); token != expectedToken {
 			t.Errorf(
 				"\nTestFloat\n"+
 					"\t%s\n"+
 					"\t\tExpected: %s\n"+
 					"\t\tGot: %s\n",
 				tc.Label,
-				FormatToken(expectedToken),
-				FormatToken(token),
+				types.FormatToken(expectedToken),
+				types.FormatToken(token),
 			)
 		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
 			t.Errorf(
@@ -62,7 +65,7 @@ func TestString(t *testing.T) {
 	type TestCase struct {
 		Label string
 		Src   string
-		F     func(l *Lexer) (Token, Pos, error)
+		F     func(l *Lexer) (types.Token, types.Pos, error)
 		Err   bool
 	}
 
@@ -71,7 +74,7 @@ func TestString(t *testing.T) {
 		{
 			"Interpreted string",
 			"\"Hello\\u1234\\U1BADFACE\\xFA\\017\\nWorld\"",
-			func(l *Lexer) (Token, Pos, error) { return l.getInterpretedStringToken() },
+			func(l *Lexer) (types.Token, types.Pos, error) { return l.getInterpretedStringToken() },
 			false,
 		},
 
@@ -92,15 +95,15 @@ func TestString(t *testing.T) {
 				tc.Label,
 				err.Error(),
 			)
-		} else if expectedToken := TokenStringLit(tc.Src); token != expectedToken {
+		} else if expectedToken := types.TokenStringLit(tc.Src); token != expectedToken {
 			t.Errorf(
 				"\nTestFloat\n"+
 					"\t%s\n"+
 					"\t\tExpected: %s\n"+
 					"\t\tGot: %s\n",
 				tc.Label,
-				FormatToken(expectedToken),
-				FormatToken(token),
+				types.FormatToken(expectedToken),
+				types.FormatToken(token),
 			)
 		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
 			t.Errorf(

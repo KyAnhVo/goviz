@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/KyAnhVo/goviz/lexer"
+	"github.com/KyAnhVo/goviz/types"
 )
 
 func main() {
@@ -46,12 +47,12 @@ func lexerCheck() {
 
 	l := lexer.NewLexer([]rune(string(content)))
 
-	var token lexer.Token
-	var pos lexer.Pos
+	var token types.Token
+	var pos types.Pos
 	token, pos, err = l.GetNextToken()
-	for pos != lexer.PosEOF {
+	for pos != types.PosEOF {
 		output.Write(fmt.Appendf(
-			[]byte(""), "Token: %s\nPos: %+v\n\n", lexer.FormatToken(token), pos,
+			[]byte(""), "Token: %s\nPos: %+v\n\n", types.FormatToken(token), pos,
 		))
 		token, pos, err = l.GetNextToken()
 	}

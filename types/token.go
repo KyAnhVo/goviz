@@ -1,20 +1,20 @@
-package lexer
+package types
 
 type Pos struct {
-	line   int
-	column int
-	pos    int
+	Line   int
+	Column int
+	Pos    int
 }
 
 var (
 	PosSynthetic Pos = Pos{
-		line: -1,
+		Line: -1,
 	}
 	PosEOF Pos = Pos{
-		line: -2,
+		Line: -2,
 	}
 	PosErr Pos = Pos{
-		line: -3,
+		Line: -3,
 	}
 )
 

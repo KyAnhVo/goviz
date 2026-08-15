@@ -38,16 +38,17 @@ package lexer
 import (
 	"errors"
 	"fmt"
+	"github.com/KyAnhVo/goviz/types"
 	"strings"
 	"unicode"
 )
 
-func (l *Lexer) getNumericLiteral() (Token, Pos, error) {
+func (l *Lexer) getNumericLiteral() (types.Token, types.Pos, error) {
 	c1 := l.peekNextChar()
 	c2 := l.peekOffset(2)
 
 	if !isDecimalDigit(c1) && !(c1 == '.' && isDecimalDigit(c2)) {
-		return TokenErr, PosErr, errors.New(
+		return types.TokenErr, types.PosErr, errors.New(
 			"A numeric token must start with a decimal digit or dot",
 		)
 	}
@@ -63,7 +64,7 @@ func (l *Lexer) getNumericLiteral() (Token, Pos, error) {
 	}
 }
 
-func (l *Lexer) getDecimalToken() (Token, Pos, error) {
+func (l *Lexer) getDecimalToken() (types.Token, types.Pos, error) {
 	// the trick here is, we recognize that, except for the dot start case,
 	// for float and non float, we all start with a <decimal_digits>. Then
 	// if there is no dot or 'e' after, we safely assume that this is an int, and
@@ -79,14 +80,14 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 
 		digits, _, err := l.getDigits(isDecimalDigit)
 		if err != nil {
-			return TokenErr, PosErr, fmt.Errorf("getDecimalToken: leading dot: fractional: %w", err)
+			return types.TokenErr, types.PosErr, fmt.Errorf("getDecimalToken: leading dot: fractional: %w", err)
 		}
 		builder.WriteString(digits)
 
 		if c = l.peekNextChar(); c == 'E' || c == 'e' {
 			exp, err := l.getExponent('e')
 			if err != nil {
-				return TokenErr, PosErr, fmt.Errorf("getDecimalToken: leading dot: exponent: %w", err)
+				return types.TokenErr, types.PosErr, fmt.Errorf("getDecimalToken: leading dot: exponent: %w", err)
 			}
 			builder.WriteString(exp)
 		}
@@ -94,15 +95,15 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 		if l.peekNextChar() == 'i' {
 			builder.WriteRune('i')
 			l.getNextChar()
-			return TokenImaginaryLit(builder.String()), pos, nil
+			return types.TokenImaginaryLit(builder.String()), pos, nil
 		}
-		return TokenFloatLit(builder.String()), pos, nil
+		return types.TokenFloatLit(builder.String()), pos, nil
 	}
 
 	// decimal_digits
 	digits, pos, err := l.getDigits(isDecimalDigit)
 	if err != nil {
-		return TokenErr, PosErr, fmt.Errorf("getDecimalToken: %w", err)
+		return types.TokenErr, types.PosErr, fmt.Errorf("getDecimalToken: %w", err)
 	}
 	builder.WriteString(digits)
 
@@ -112,19 +113,19 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 		if l.peekNextChar() == 'i' {
 			l.getNextChar()
 			builder.WriteRune('i')
-			return TokenImaginaryLit(builder.String()), pos, nil
+			return types.TokenImaginaryLit(builder.String()), pos, nil
 		}
 
 		// Decimal integer
 		if len(digits) > 1 && digits[0] == '0' {
 			for _, c := range digits {
 				if !isOctalDigit(c) {
-					return TokenErr, PosErr, errors.New("decimal int cannot lead with 0")
+					return types.TokenErr, types.PosErr, errors.New("decimal int cannot lead with 0")
 				}
 			}
-			return TokenIntLit(digits), pos, nil
+			return types.TokenIntLit(digits), pos, nil
 		}
-		return TokenIntLit(builder.String()), pos, nil
+		return types.TokenIntLit(builder.String()), pos, nil
 	} else {
 		// ("." [decimal_digits] [decimal_exponent]) | (decimal_exponent)
 		if c == '.' {
@@ -134,7 +135,7 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 			if isDecimalDigit(l.peekNextChar()) {
 				digits, _, err := l.getDigits(isDecimalDigit)
 				if err != nil {
-					return TokenErr, PosErr, fmt.Errorf("getDecimalToken: %w", err)
+					return types.TokenErr, types.PosErr, fmt.Errorf("getDecimalToken: %w", err)
 				}
 				builder.WriteString(digits)
 			}
@@ -146,7 +147,7 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 		if c == 'e' || c == 'E' {
 			exponent, err := l.getExponent('e')
 			if err != nil {
-				return TokenErr, PosErr, fmt.Errorf("getDecimalToken: %w", err)
+				return types.TokenErr, types.PosErr, fmt.Errorf("getDecimalToken: %w", err)
 			}
 			builder.WriteString(exponent)
 		}
@@ -154,13 +155,13 @@ func (l *Lexer) getDecimalToken() (Token, Pos, error) {
 		if l.peekNextChar() == 'i' {
 			l.getNextChar()
 			builder.WriteRune('i')
-			return TokenFloatLit(builder.String()), pos, nil
+			return types.TokenFloatLit(builder.String()), pos, nil
 		}
-		return TokenFloatLit(builder.String()), pos, nil
+		return types.TokenFloatLit(builder.String()), pos, nil
 	}
 }
 
-func (l *Lexer) getBinaryToken() (Token, Pos, error) {
+func (l *Lexer) getBinaryToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
 	c1, pos := l.getNextChar()
@@ -176,19 +177,19 @@ func (l *Lexer) getBinaryToken() (Token, Pos, error) {
 
 	s, _, err := l.getDigits(isBinaryDigit)
 	if err != nil {
-		return TokenErr, PosErr, fmt.Errorf("getBinaryToken: %w", err)
+		return types.TokenErr, types.PosErr, fmt.Errorf("getBinaryToken: %w", err)
 	}
 	builder.WriteString(s)
 
 	if l.peekNextChar() == 'i' {
 		l.getNextChar()
 		builder.WriteRune('i')
-		return TokenImaginaryLit(builder.String()), pos, nil
+		return types.TokenImaginaryLit(builder.String()), pos, nil
 	}
-	return TokenIntLit(builder.String()), pos, nil
+	return types.TokenIntLit(builder.String()), pos, nil
 }
 
-func (l *Lexer) getOctalToken() (Token, Pos, error) {
+func (l *Lexer) getOctalToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
 	c1, pos := l.getNextChar()
@@ -204,19 +205,19 @@ func (l *Lexer) getOctalToken() (Token, Pos, error) {
 
 	s, _, err := l.getDigits(isOctalDigit)
 	if err != nil {
-		return TokenErr, PosErr, fmt.Errorf("getOctalToken: %w", err)
+		return types.TokenErr, types.PosErr, fmt.Errorf("getOctalToken: %w", err)
 	}
 	builder.WriteString(s)
 
 	if l.peekNextChar() == 'i' {
 		l.getNextChar()
 		builder.WriteRune('i')
-		return TokenImaginaryLit(builder.String()), pos, nil
+		return types.TokenImaginaryLit(builder.String()), pos, nil
 	}
-	return TokenIntLit(builder.String()), pos, nil
+	return types.TokenIntLit(builder.String()), pos, nil
 }
 
-func (l *Lexer) getHexToken() (Token, Pos, error) {
+func (l *Lexer) getHexToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
 	c1, pos := l.getNextChar()
@@ -227,7 +228,7 @@ func (l *Lexer) getHexToken() (Token, Pos, error) {
 
 	integer, fractional, err := l.hexMantissa()
 	if err != nil {
-		return TokenErr, PosErr, fmt.Errorf("getHexToken: %w", err)
+		return types.TokenErr, types.PosErr, fmt.Errorf("getHexToken: %w", err)
 	}
 	builder.WriteString(integer)
 	builder.WriteString(fractional)
@@ -239,36 +240,36 @@ func (l *Lexer) getHexToken() (Token, Pos, error) {
 		if l.peekNextChar() == 'i' {
 			l.getNextChar()
 			builder.WriteRune('i')
-			return TokenImaginaryLit(builder.String()), pos, nil
+			return types.TokenImaginaryLit(builder.String()), pos, nil
 		}
-		return TokenIntLit(builder.String()), pos, nil
+		return types.TokenIntLit(builder.String()), pos, nil
 	}
 
 	exponent, err := l.getExponent('p')
 	if err != nil {
-		return TokenErr, PosErr, fmt.Errorf("getHexToken: exponent part error: %w", err)
+		return types.TokenErr, types.PosErr, fmt.Errorf("getHexToken: exponent part error: %w", err)
 	}
 	builder.WriteString(exponent)
 
 	if l.peekNextChar() == 'i' {
 		l.getNextChar()
 		builder.WriteRune('i')
-		return TokenImaginaryLit(builder.String()), pos, nil
+		return types.TokenImaginaryLit(builder.String()), pos, nil
 	}
-	return TokenFloatLit(builder.String()), pos, nil
+	return types.TokenFloatLit(builder.String()), pos, nil
 }
 
 // -------------------------------- utils --------------------------------
 
 // we gather digit greedily via the grammar
 // digits := digit { ["_"] digit } .
-func (l *Lexer) getDigits(verifyDigit func(rune) bool) (string, Pos, error) {
+func (l *Lexer) getDigits(verifyDigit func(rune) bool) (string, types.Pos, error) {
 	var builder strings.Builder
 
 	// first digit
 	c := l.peekNextChar()
 	if !verifyDigit(c) {
-		return "", PosErr, errors.New("digts error: digits must start with a digit")
+		return "", types.PosErr, errors.New("digts error: digits must start with a digit")
 	}
 	builder.WriteRune(c)
 	_, pos := l.getNextChar()
@@ -281,7 +282,7 @@ func (l *Lexer) getDigits(verifyDigit func(rune) bool) (string, Pos, error) {
 			builder.WriteRune(c)
 			c = l.peekNextChar()
 			if !verifyDigit(c) {
-				return "", PosErr, errors.New(
+				return "", types.PosErr, errors.New(
 					"digits error: must have digit after underline.",
 				)
 			}

@@ -22,6 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/KyAnhVo/goviz/types"
 )
 
 type escapeMode uint
@@ -118,12 +120,12 @@ func (l *Lexer) escapeChar(literalType string, notAcceptable rune, escapeFlags e
 	}
 }
 
-func (l *Lexer) getInterpretedStringToken() (Token, Pos, error) {
+func (l *Lexer) getInterpretedStringToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
 	c, pos := l.getNextChar()
 	if c != '"' {
-		return TokenErr, PosErr, errors.New("interpretedString: must start with a double quote")
+		return types.TokenErr, types.PosErr, errors.New("interpretedString: must start with a double quote")
 	}
 	builder.WriteRune(c)
 
@@ -131,12 +133,12 @@ func (l *Lexer) getInterpretedStringToken() (Token, Pos, error) {
 	for c != '"' {
 		builder.WriteRune(c)
 		if isNewline(c) || c == '\u0000' {
-			return TokenErr, PosErr, errors.New("interpretedString: end of line without closing string")
+			return types.TokenErr, types.PosErr, errors.New("interpretedString: end of line without closing string")
 		}
 		if c == '\\' {
 			s, err := l.escapeChar("String", '\'', escapeModeUnicode|escapeModeByte)
 			if err != nil {
-				return TokenErr, PosErr, fmt.Errorf("interpretedString: %w", err)
+				return types.TokenErr, types.PosErr, fmt.Errorf("interpretedString: %w", err)
 			}
 			builder.WriteString(s)
 		}
@@ -144,15 +146,15 @@ func (l *Lexer) getInterpretedStringToken() (Token, Pos, error) {
 	}
 	builder.WriteRune(c)
 
-	return TokenStringLit(builder.String()), pos, nil
+	return types.TokenStringLit(builder.String()), pos, nil
 }
 
-func (l *Lexer) getRawStringToken() (Token, Pos, error) {
+func (l *Lexer) getRawStringToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
 	c, pos := l.getNextChar()
 	if c != '`' {
-		return TokenErr, PosErr, errors.New("rawString: must start with a tick")
+		return types.TokenErr, types.PosErr, errors.New("rawString: must start with a tick")
 	}
 	builder.WriteRune(c)
 
@@ -160,12 +162,12 @@ func (l *Lexer) getRawStringToken() (Token, Pos, error) {
 	for c != '`' {
 		builder.WriteRune(c)
 		if c == '\u0000' {
-			return TokenErr, PosErr, errors.New("rawString: file ended without string closing")
+			return types.TokenErr, types.PosErr, errors.New("rawString: file ended without string closing")
 		}
 		if c == '\\' {
 			s, err := l.escapeChar("String", '\'', escapeModeUnicode)
 			if err != nil {
-				return TokenErr, PosErr, fmt.Errorf("rawString: %w", err)
+				return types.TokenErr, types.PosErr, fmt.Errorf("rawString: %w", err)
 			}
 			builder.WriteString(s)
 		}
@@ -173,13 +175,13 @@ func (l *Lexer) getRawStringToken() (Token, Pos, error) {
 	}
 	builder.WriteRune(c)
 
-	return TokenStringLit(builder.String()), pos, nil
+	return types.TokenStringLit(builder.String()), pos, nil
 }
 
-func (l *Lexer) getRuneToken() (Token, Pos, error) {
+func (l *Lexer) getRuneToken() (types.Token, types.Pos, error) {
 	open, pos := l.getNextChar()
 	if open != '\'' {
-		return TokenErr, PosErr, errors.New("rune: must start with a single quote")
+		return types.TokenErr, types.PosErr, errors.New("rune: must start with a single quote")
 	}
 
 	c, _ := l.getNextChar()
@@ -188,14 +190,14 @@ func (l *Lexer) getRuneToken() (Token, Pos, error) {
 	if c == '\\' {
 		extra, err = l.escapeChar("Rune", '"', escapeModeUnicode|escapeModeByte)
 		if err != nil {
-			return TokenErr, PosErr, fmt.Errorf("rune: %w", err)
+			return types.TokenErr, types.PosErr, fmt.Errorf("rune: %w", err)
 		}
 	}
 
 	close, _ := l.getNextChar()
 	if close != '\'' {
-		return TokenErr, PosErr, errors.New("rune: must end with a single quote")
+		return types.TokenErr, types.PosErr, errors.New("rune: must end with a single quote")
 	}
 
-	return TokenRuneLit("'" + string(c) + extra + "'"), pos, nil
+	return types.TokenRuneLit("'" + string(c) + extra + "'"), pos, nil
 }

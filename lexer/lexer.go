@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/KyAnhVo/goviz/types"
 	"github.com/KyAnhVo/goviz/util"
 )
 
@@ -16,7 +17,7 @@ type Lexer struct {
 	canInsertSemicolon bool
 
 	prevLineLen int
-	pos         Pos
+	pos         types.Pos
 }
 
 var singleCharOperators = util.NewSet([]rune{
@@ -39,7 +40,7 @@ var tripleCharOperators = util.NewSet([]string{
 	"<<=", ">>=", "&^=", "...",
 })
 
-func (l *Lexer) GetNextToken() (Token, Pos, error) {
+func (l *Lexer) GetNextToken() (types.Token, types.Pos, error) {
 	for {
 		c1 := l.peekNextChar()
 		c2 := l.peekOffset(2)
@@ -48,17 +49,17 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 		twoChar := string(c1) + string(c2)
 		threeChars := twoChar + string(c3)
 
-		var token Token
-		var pos Pos
+		var token types.Token
+		var pos types.Pos
 		if c1 == '\u0000' { // Null and whitespace starts here ---------------------------------
 			if l.canInsertSemicolon {
 				// endline and synthetic semicolon has same position
 				pos = l.getCurrentPos()
-				pos.column += 1
-				token = TokenSemicolon
+				pos.Column += 1
+				token = types.TokenSemicolon
 			} else {
-				token = TokenEOF
-				pos = PosEOF
+				token = types.TokenEOF
+				pos = types.PosEOF
 			}
 		} else if isWhitespaceNonNewline(c1) {
 			l.getNextChar()
@@ -66,8 +67,8 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 		} else if isNewline(c1) {
 			if l.canInsertSemicolon {
 				pos = l.getCurrentPos()
-				pos.column += 1
-				token = TokenSemicolon
+				pos.Column += 1
+				token = types.TokenSemicolon
 			} else {
 				l.getNextChar()
 				continue
@@ -81,9 +82,9 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 			err := l.getGeneralComment()
 			if err != nil {
 				pos = l.pos
-				return TokenErr, PosErr, fmt.Errorf(
+				return types.TokenErr, types.PosErr, fmt.Errorf(
 					"Error lexing: line %d, column %d, position %d: %w",
-					pos.line, pos.column, pos.pos, err,
+					pos.Line, pos.Column, pos.Pos, err,
 				)
 			}
 			continue
@@ -91,9 +92,9 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 			newToken, newPos, err := l.getNumericLiteral()
 			if err != nil {
 				pos = l.pos
-				return TokenErr, PosErr, fmt.Errorf(
+				return types.TokenErr, types.PosErr, fmt.Errorf(
 					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
-					pos.line, pos.column, pos.pos, err,
+					pos.Line, pos.Column, pos.Pos, err,
 				)
 			}
 			token = newToken
@@ -103,21 +104,21 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 			_, pos = l.getNextChar()
 			l.getNextChar()
 			l.getNextChar()
-			token = TokenOperator(threeChars)
+			token = types.TokenOperator(threeChars)
 		} else if doubleCharOperators.Contains(twoChar) { // 2 char start here ------------------
 			_, pos = l.getNextChar()
 			l.getNextChar()
-			token = TokenOperator(twoChar)
+			token = types.TokenOperator(twoChar)
 		} else if singleCharOperators.Contains(c1) { // 1 char start here ---------------------
 			_, pos = l.getNextChar()
-			token = TokenOperator(string(c1))
+			token = types.TokenOperator(string(c1))
 		} else if c1 == '"' {
 			newToken, newPos, err := l.getInterpretedStringToken()
 			if err != nil {
 				pos = l.pos
-				return TokenErr, PosErr, fmt.Errorf(
+				return types.TokenErr, types.PosErr, fmt.Errorf(
 					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
-					pos.line, pos.column, pos.pos, err,
+					pos.Line, pos.Column, pos.Pos, err,
 				)
 			}
 			token, pos = newToken, newPos
@@ -125,9 +126,9 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 			newToken, newPos, err := l.getRuneToken()
 			if err != nil {
 				pos = l.pos
-				return TokenErr, PosErr, fmt.Errorf(
+				return types.TokenErr, types.PosErr, fmt.Errorf(
 					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
-					pos.line, pos.column, pos.pos, err,
+					pos.Line, pos.Column, pos.Pos, err,
 				)
 			}
 			token, pos = newToken, newPos
@@ -135,17 +136,17 @@ func (l *Lexer) GetNextToken() (Token, Pos, error) {
 			newToken, newPos, err := l.getRawStringToken()
 			if err != nil {
 				pos = l.pos
-				return TokenErr, PosErr, fmt.Errorf(
+				return types.TokenErr, types.PosErr, fmt.Errorf(
 					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
-					pos.line, pos.column, pos.pos, err,
+					pos.Line, pos.Column, pos.Pos, err,
 				)
 			}
 			token, pos = newToken, newPos
 		} else {
 			pos = l.pos
-			return TokenErr, PosErr, fmt.Errorf(
+			return types.TokenErr, types.PosErr, fmt.Errorf(
 				"Lexer.GetNextToken: line %d, column %d, position %d: %w",
-				pos.line, pos.column, pos.pos,
+				pos.Line, pos.Column, pos.Pos,
 				errors.New("Uncategorized character: "+string(c1)),
 			)
 		}
@@ -166,10 +167,10 @@ func NewLexer(src []rune) *Lexer {
 		currentChar:        '\u0000',
 		canInsertSemicolon: false,
 
-		pos: Pos{
-			line:   1,
-			column: 0,
-			pos:    0,
+		pos: types.Pos{
+			Line:   1,
+			Column: 0,
+			Pos:    0,
 		},
 	}
 }
@@ -178,15 +179,15 @@ func (l *Lexer) peekNextChar() rune {
 	return l.peekOffset(1)
 }
 
-func (l *Lexer) getNextChar() (rune, Pos) {
+func (l *Lexer) getNextChar() (rune, types.Pos) {
 	l.currentChar = l.peekNextChar()
 
-	var currentPos Pos
+	var currentPos types.Pos
 	if l.currentChar != '\u0000' {
 		if l.extraBuf != '\u0000' {
 			// case 1: extrabuf is nonempty.
 			// Then we reset extrabuf
-			currentPos = PosSynthetic
+			currentPos = types.PosSynthetic
 			l.extraBuf = '\u0000'
 		} else {
 			// case 2: extrabuf is empty.
@@ -195,34 +196,34 @@ func (l *Lexer) getNextChar() (rune, Pos) {
 			l.ptr += 1
 		}
 	} else {
-		currentPos = PosEOF
+		currentPos = types.PosEOF
 	}
 
 	return l.currentChar, currentPos
 }
 
-func (l *Lexer) getCurrentPos() Pos {
+func (l *Lexer) getCurrentPos() types.Pos {
 	semanticPos := l.pos
-	if semanticPos.column == 0 {
-		semanticPos.column = l.prevLineLen + 1
-		semanticPos.line -= 1
+	if semanticPos.Column == 0 {
+		semanticPos.Column = l.prevLineLen + 1
+		semanticPos.Line -= 1
 	}
 	return semanticPos
 }
 
-func (l *Lexer) getCurrentChar() (rune, Pos) {
+func (l *Lexer) getCurrentChar() (rune, types.Pos) {
 	return l.currentChar, l.getCurrentPos()
 }
 
-func (l *Lexer) adjustPos(c rune) Pos {
+func (l *Lexer) adjustPos(c rune) types.Pos {
 	if isNewline(c) {
-		l.prevLineLen = l.pos.column
-		l.pos.column = 0
-		l.pos.line += 1
+		l.prevLineLen = l.pos.Column
+		l.pos.Column = 0
+		l.pos.Line += 1
 	} else {
-		l.pos.column += 1
+		l.pos.Column += 1
 	}
-	l.pos.pos += 1
+	l.pos.Pos += 1
 
 	return l.getCurrentPos()
 }
@@ -248,16 +249,16 @@ func (l *Lexer) peekOffset(offset int) rune {
 	return ('\u0000')
 }
 
-var insertSemicolonTokenTypes = util.NewSet([]TokenType{
-	TokenTypeIdentifier, TokenTypeFloatLiteral,
-	TokenTypeImaginaryLiteral, TokenTypeIntLiteral,
-	TokenTypeStringLiteral, TokenTypeRuneLiteral,
+var insertSemicolonTokenTypes = util.NewSet([]types.TokenType{
+	types.TokenTypeIdentifier, types.TokenTypeFloatLiteral,
+	types.TokenTypeImaginaryLiteral, types.TokenTypeIntLiteral,
+	types.TokenTypeStringLiteral, types.TokenTypeRuneLiteral,
 })
-var insertSemicolonTokens = util.NewSet([]Token{
-	TokenKeywordBreak, TokenKeywordReturn,
-	TokenKeywordFallthrough, TokenIncrement,
-	TokenDecrement, TokenRBrace,
-	TokenRBracket, TokenRParen,
+var insertSemicolonTokens = util.NewSet([]types.Token{
+	types.TokenKeywordBreak, types.TokenKeywordReturn,
+	types.TokenKeywordFallthrough, types.TokenIncrement,
+	types.TokenDecrement, types.TokenRBrace,
+	types.TokenRBracket, types.TokenRParen,
 })
 
 // Setup if the next newline must add a semicolon before.
@@ -271,7 +272,7 @@ var insertSemicolonTokens = util.NewSet([]Token{
 //	an integer, floating-point, imaginary, rune, or string literal
 //	one of the keywords break, continue, fallthrough, or return
 //	one of the operators and punctuation ++, --, ), ], or }
-func (l *Lexer) setupSemicolonInsertNewline(token Token) {
+func (l *Lexer) setupSemicolonInsertNewline(token types.Token) {
 	l.canInsertSemicolon =
 		insertSemicolonTokens.Contains(token) || insertSemicolonTokenTypes.Contains(token.Type)
 }

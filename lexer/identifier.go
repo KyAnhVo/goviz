@@ -19,10 +19,14 @@ continue     for          import       return       var
 
 package lexer
 
-import "strings"
+import (
+	"strings"
 
-func (l *Lexer) getIdentifierOrKeyword() (Token, Pos) {
-	var token Token
+	"github.com/KyAnhVo/goviz/types"
+)
+
+func (l *Lexer) getIdentifierOrKeyword() (types.Token, types.Pos) {
+	var token types.Token
 	var builder strings.Builder
 
 	c, pos := l.getNextChar()
@@ -48,9 +52,9 @@ func (l *Lexer) getIdentifierOrKeyword() (Token, Pos) {
 	}
 	_, isKeyword := keywordSet[string(token.Value)]
 	if isKeyword {
-		token.Type = TokenTypeKeyword
+		token.Type = types.TokenTypeKeyword
 	} else {
-		token.Type = TokenTypeIdentifier
+		token.Type = types.TokenTypeIdentifier
 	}
 
 	return token, pos

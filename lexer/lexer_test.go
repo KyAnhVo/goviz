@@ -3,6 +3,8 @@ package lexer
 import (
 	"strings"
 	"testing"
+
+	"github.com/KyAnhVo/goviz/types"
 )
 
 // ----------------------- TEST SUITE HELPERS -----------------------
@@ -14,12 +16,12 @@ func checkRune(t *testing.T, label string, want rune, got rune) {
 			"\nCharacter:\n"+
 				"%s\n"+
 				"\t%s != %s\n",
-			label, FormatRune(want), FormatRune(got),
+			label, types.FormatRune(want), types.FormatRune(got),
 		)
 	}
 }
 
-func checkPos(t *testing.T, label string, want Pos, got Pos) {
+func checkPos(t *testing.T, label string, want types.Pos, got types.Pos) {
 	t.Helper()
 	if want != got {
 		t.Errorf(
@@ -34,12 +36,12 @@ func checkPos(t *testing.T, label string, want Pos, got Pos) {
 // ----------------------- TEST SUITE -----------------------
 
 // Test the primitive functions like getNextChar, getCurrentChar.
-// Should be able to test getPos, etc. since they are all incoorporated
+// Should be able to test gettypes.Pos, etc. since they are all incoorporated
 // ino these 2.
 func TestCharRead(t *testing.T) {
 	type TestCase struct {
 		Rune     rune
-		Position Pos
+		Position types.Pos
 	}
 
 	// this builder is just to seperate lines so it look nice.
@@ -49,13 +51,13 @@ func TestCharRead(t *testing.T) {
 	l := NewLexer([]rune(builder.String()))
 
 	tcs := []TestCase{
-		{'a', Pos{line: 1, column: 1, pos: 1}},
-		{'b', Pos{line: 1, column: 2, pos: 2}},
-		{'c', Pos{line: 1, column: 3, pos: 3}},
-		{'\n', Pos{line: 1, column: 4, pos: 4}},
-		{'d', Pos{line: 2, column: 1, pos: 5}},
-		{'e', Pos{line: 2, column: 2, pos: 6}},
-		{'\n', Pos{line: 2, column: 3, pos: 7}},
+		{'a', types.Pos{Line: 1, Column: 1, Pos: 1}},
+		{'b', types.Pos{Line: 1, Column: 2, Pos: 2}},
+		{'c', types.Pos{Line: 1, Column: 3, Pos: 3}},
+		{'\n', types.Pos{Line: 1, Column: 4, Pos: 4}},
+		{'d', types.Pos{Line: 2, Column: 1, Pos: 5}},
+		{'e', types.Pos{Line: 2, Column: 2, Pos: 6}},
+		{'\n', types.Pos{Line: 2, Column: 3, Pos: 7}},
 	}
 
 	for _, tc := range tcs {
@@ -79,7 +81,7 @@ func TestComment(t *testing.T) {
 		Src      string
 		Label    string
 		Rune     rune
-		Position Pos
+		Position types.Pos
 		Function func(*Lexer)
 	}
 
@@ -88,28 +90,28 @@ func TestComment(t *testing.T) {
 			Src:      "// Inline Comment\n",
 			Label:    "Inline comment",
 			Rune:     '\n',
-			Position: Pos{line: 1, column: 18, pos: 18},
+			Position: types.Pos{Line: 1, Column: 18, Pos: 18},
 			Function: func(l *Lexer) { l.getLineComment() },
 		},
 		{
 			Src:      "/* Block Comment Inline */",
 			Label:    "Block comment inline",
 			Rune:     ' ',
-			Position: PosSynthetic,
+			Position: types.PosSynthetic,
 			Function: func(l *Lexer) { l.getGeneralComment() },
 		},
 		{
 			Src:      "/* Block Comment \n With Line */",
 			Label:    "Block comment with line",
 			Rune:     '\n',
-			Position: PosSynthetic,
+			Position: types.PosSynthetic,
 			Function: func(l *Lexer) { l.getGeneralComment() },
 		},
 		{
 			Src:      "/* Block Comment Check After */x",
 			Label:    "Check after block comment",
 			Rune:     'x',
-			Position: Pos{line: 1, column: 32, pos: 32},
+			Position: types.Pos{Line: 1, Column: 32, Pos: 32},
 			Function: func(l *Lexer) {
 				l.getGeneralComment()
 				l.getNextChar()

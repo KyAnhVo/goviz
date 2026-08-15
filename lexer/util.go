@@ -32,14 +32,6 @@ func isWhitespaceNonNewline(c rune) bool {
 	return slices.Contains([]rune{'\u0020', '\u0009', '\u000D'}, c)
 }
 
-func isWhitespace(c rune) bool {
-	return isNewline(c) || isWhitespaceNonNewline(c)
-}
-
-func isUnicodeChar(c rune) bool {
-	return !isNewline(c)
-}
-
 func isUnicodeDigit(c rune) bool {
 	return unicode.Is(unicode.Nd, c)
 }
