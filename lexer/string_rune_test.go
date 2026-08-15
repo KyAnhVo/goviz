@@ -1,8 +1,9 @@
 package lexer
 
 import (
-	"github.com/KyAnhVo/goviz/types"
 	"testing"
+
+	types "github.com/KyAnhVo/goviz/token"
 )
 
 func TestRune(t *testing.T) {

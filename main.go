@@ -7,7 +7,7 @@ import (
 	"os"
 
 	"github.com/KyAnhVo/goviz/lexer"
-	"github.com/KyAnhVo/goviz/types"
+	types "github.com/KyAnhVo/goviz/token"
 )
 
 func main() {

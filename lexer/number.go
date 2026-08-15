@@ -38,9 +38,10 @@ package lexer
 import (
 	"errors"
 	"fmt"
-	"github.com/KyAnhVo/goviz/types"
 	"strings"
 	"unicode"
+
+	types "github.com/KyAnhVo/goviz/token"
 )
 
 func (l *Lexer) getNumericLiteral() (types.Token, types.Pos, error) {

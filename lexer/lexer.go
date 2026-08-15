@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/KyAnhVo/goviz/types"
+	types "github.com/KyAnhVo/goviz/token"
 	"github.com/KyAnhVo/goviz/util"
 )
 

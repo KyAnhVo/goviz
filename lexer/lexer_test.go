@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/KyAnhVo/goviz/types"
+	types "github.com/KyAnhVo/goviz/token"
 )
 
 // ----------------------- TEST SUITE HELPERS -----------------------

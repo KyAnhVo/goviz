@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/KyAnhVo/goviz/types"
+	types "github.com/KyAnhVo/goviz/token"
 )
 
 type escapeMode uint
