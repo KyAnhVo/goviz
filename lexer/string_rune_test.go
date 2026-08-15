@@ -57,3 +57,59 @@ func TestRune(t *testing.T) {
 		}
 	}
 }
+
+func TestString(t *testing.T) {
+	type TestCase struct {
+		Label string
+		Src   string
+		F     func(l *Lexer) (Token, Pos, error)
+		Err   bool
+	}
+
+	tcs := []TestCase{
+		// happy test
+		{
+			"Interpreted string",
+			"\"Hello\\u1234\\U1BADFACE\\xFA\\017\\nWorld\"",
+			func(l *Lexer) (Token, Pos, error) { return l.getInterpretedStringToken() },
+			false,
+		},
+
+		// error test
+		// TODO: add error tests
+	}
+	for _, tc := range tcs {
+		l := NewLexer([]rune(tc.Src + " "))
+		token, _, err := l.getInterpretedStringToken()
+		if tc.Err && err != nil {
+			continue
+		}
+		if err != nil {
+			t.Errorf(
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\tError: %s",
+				tc.Label,
+				err.Error(),
+			)
+		} else if expectedToken := TokenStringLit(tc.Src); token != expectedToken {
+			t.Errorf(
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\tExpected: %s\n"+
+					"\t\tGot: %s\n",
+				tc.Label,
+				formatToken(expectedToken),
+				formatToken(token),
+			)
+		} else if l.peekNextChar() != ' ' { // test to ensure correct ptr location after number
+			t.Errorf(
+				"\nTestFloat\n"+
+					"\t%s\n"+
+					"\t\terror: did not advance over token, final char: %c\n",
+				tc.Label,
+				l.peekNextChar(),
+			)
+		}
+	}
+}
