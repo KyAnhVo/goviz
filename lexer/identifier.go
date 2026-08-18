@@ -20,16 +20,20 @@ continue     for          import       return       var
 package lexer
 
 import (
+	"fmt"
 	"strings"
 
 	types "github.com/KyAnhVo/goviz/token"
 )
 
-func (l *Lexer) getIdentifierOrKeyword() (types.Token, types.Pos) {
+func (l *Lexer) getIdentifierOrKeyword() (types.Token, types.Pos, error) {
 	var token types.Token
 	var builder strings.Builder
 
-	c, pos := l.getNextChar()
+	c, pos, err := l.getNextChar()
+	if err != nil {
+		return types.TokenErr, types.PosErr, fmt.Errorf("Identifier: %w", err)
+	}
 	if !isLetter(c) {
 		panic("invariant broken: " + string(c) + "is not a letter")
 	}
@@ -43,13 +47,6 @@ func (l *Lexer) getIdentifierOrKeyword() (types.Token, types.Pos) {
 	}
 	token.Value = builder.String()
 
-	keywordSet := map[string]struct{}{
-		"break": {}, "case": {}, "chan": {}, "const": {}, "continue": {},
-		"default": {}, "defer": {}, "else": {}, "fallthrough": {}, "for": {},
-		"func": {}, "go": {}, "goto": {}, "if": {}, "import": {},
-		"interface": {}, "map": {}, "package": {}, "range": {}, "return": {},
-		"select": {}, "struct": {}, "switch": {}, "type": {}, "var": {},
-	}
 	_, isKeyword := keywordSet[string(token.Value)]
 	if isKeyword {
 		token.Type = types.TokenTypeKeyword
@@ -57,5 +54,13 @@ func (l *Lexer) getIdentifierOrKeyword() (types.Token, types.Pos) {
 		token.Type = types.TokenTypeIdentifier
 	}
 
-	return token, pos
+	return token, pos, nil
+}
+
+var keywordSet map[string]struct{} = map[string]struct{}{
+	"break": {}, "case": {}, "chan": {}, "const": {}, "continue": {},
+	"default": {}, "defer": {}, "else": {}, "fallthrough": {}, "for": {},
+	"func": {}, "go": {}, "goto": {}, "if": {}, "import": {},
+	"interface": {}, "map": {}, "package": {}, "range": {}, "return": {},
+	"select": {}, "struct": {}, "switch": {}, "type": {}, "var": {},
 }

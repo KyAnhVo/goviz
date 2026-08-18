@@ -40,7 +40,7 @@ const (
 )
 
 func (l *Lexer) escapeChar(literalType string, notAcceptable rune, escapeFlags escapeMode) (string, error) {
-	c, _ := l.getNextChar()
+	c, _, _ := l.getNextChar()
 	switch c {
 	case notAcceptable:
 		return "",
@@ -59,7 +59,7 @@ func (l *Lexer) escapeChar(literalType string, notAcceptable rune, escapeFlags e
 		var builder strings.Builder
 		builder.WriteRune('x')
 		for range 2 {
-			c, _ := l.getNextChar()
+			c, _, _ := l.getNextChar()
 			if !isHexDigit(c) {
 				return "",
 					errors.New("escapeChar: hex byte notation requires 2 hex digits")
@@ -75,7 +75,7 @@ func (l *Lexer) escapeChar(literalType string, notAcceptable rune, escapeFlags e
 		var builder strings.Builder
 		builder.WriteRune('u')
 		for range 4 {
-			c, _ := l.getNextChar()
+			c, _, _ := l.getNextChar()
 			if !isHexDigit(c) {
 				return "",
 					errors.New("escapeChar: small u notation requires 4 hex digits")
@@ -91,7 +91,7 @@ func (l *Lexer) escapeChar(literalType string, notAcceptable rune, escapeFlags e
 		var builder strings.Builder
 		builder.WriteRune('U')
 		for range 8 {
-			c, _ := l.getNextChar()
+			c, _, _ := l.getNextChar()
 			if !isHexDigit(c) {
 				return "",
 					errors.New("escapeChar: big u notation requires 8 hex digits")
@@ -107,7 +107,7 @@ func (l *Lexer) escapeChar(literalType string, notAcceptable rune, escapeFlags e
 		var builder strings.Builder
 		builder.WriteRune(c)
 		for range 2 {
-			c, _ := l.getNextChar()
+			c, _, _ := l.getNextChar()
 			if !isOctalDigit(c) {
 				return "",
 					errors.New("escapeChar: octal byte notation requires 3 octal digits")
@@ -123,13 +123,13 @@ func (l *Lexer) escapeChar(literalType string, notAcceptable rune, escapeFlags e
 func (l *Lexer) getInterpretedStringToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
-	c, pos := l.getNextChar()
+	c, pos, _ := l.getNextChar()
 	if c != '"' {
 		return types.TokenErr, types.PosErr, errors.New("interpretedString: must start with a double quote")
 	}
 	builder.WriteRune(c)
 
-	c, _ = l.getNextChar()
+	c, _, _ = l.getNextChar()
 	for c != '"' {
 		builder.WriteRune(c)
 		if isNewline(c) || c == '\u0000' {
@@ -142,7 +142,7 @@ func (l *Lexer) getInterpretedStringToken() (types.Token, types.Pos, error) {
 			}
 			builder.WriteString(s)
 		}
-		c, _ = l.getNextChar()
+		c, _, _ = l.getNextChar()
 	}
 	builder.WriteRune(c)
 
@@ -152,13 +152,13 @@ func (l *Lexer) getInterpretedStringToken() (types.Token, types.Pos, error) {
 func (l *Lexer) getRawStringToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
-	c, pos := l.getNextChar()
+	c, pos, _ := l.getNextChar()
 	if c != '`' {
 		return types.TokenErr, types.PosErr, errors.New("rawString: must start with a tick")
 	}
 	builder.WriteRune(c)
 
-	c, _ = l.getNextChar()
+	c, _, _ = l.getNextChar()
 	for c != '`' {
 		builder.WriteRune(c)
 		if c == '\u0000' {
@@ -171,7 +171,7 @@ func (l *Lexer) getRawStringToken() (types.Token, types.Pos, error) {
 			}
 			builder.WriteString(s)
 		}
-		c, _ = l.getNextChar()
+		c, _, _ = l.getNextChar()
 	}
 	builder.WriteRune(c)
 
@@ -179,12 +179,12 @@ func (l *Lexer) getRawStringToken() (types.Token, types.Pos, error) {
 }
 
 func (l *Lexer) getRuneToken() (types.Token, types.Pos, error) {
-	open, pos := l.getNextChar()
+	open, pos, _ := l.getNextChar()
 	if open != '\'' {
 		return types.TokenErr, types.PosErr, errors.New("rune: must start with a single quote")
 	}
 
-	c, _ := l.getNextChar()
+	c, _, _ := l.getNextChar()
 	extra := ""
 	var err error
 	if c == '\\' {
@@ -194,7 +194,7 @@ func (l *Lexer) getRuneToken() (types.Token, types.Pos, error) {
 		}
 	}
 
-	close, _ := l.getNextChar()
+	close, _, _ := l.getNextChar()
 	if close != '\'' {
 		return types.TokenErr, types.PosErr, errors.New("rune: must end with a single quote")
 	}

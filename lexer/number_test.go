@@ -37,7 +37,7 @@ func TestInteger(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		l := NewLexer([]rune(tc.Src))
+		l := createLexer(tc.Src)
 		token, _, err := l.getNumericLiteral()
 		if tc.Err && err != nil {
 			continue
@@ -101,7 +101,7 @@ func TestFloat(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		l := NewLexer([]rune(tc.Src))
+		l := createLexer(tc.Src)
 		token, _, err := l.getNumericLiteral()
 		if tc.Err && err != nil {
 			continue
@@ -150,7 +150,7 @@ func TestImaginary(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		l := NewLexer([]rune(tc.Src))
+		l := createLexer(tc.Src)
 		token, _, err := l.getNumericLiteral()
 		if tc.Err && err != nil {
 			continue

@@ -2,6 +2,7 @@ package lexer
 
 import (
 	"errors"
+	"fmt"
 )
 
 // ---------------------------- Comments ----------------------------
@@ -50,7 +51,14 @@ func (l *Lexer) getGeneralComment() error {
 		}
 		hasNewLine = hasNewLine || isNewline(c1)
 
-		c1, _ = l.getNextChar()
+		var err error
+		c1, _, err = l.getNextChar()
+		if err != nil {
+			return fmt.Errorf(
+				"GetGeneralComment: line %d, column %d, position %d: %w",
+				l.pos.Line, l.pos.Column, l.pos.Pos, err,
+			)
+		}
 		c2 = l.peekNextChar()
 	}
 	l.getNextChar()

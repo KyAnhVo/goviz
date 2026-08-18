@@ -1,20 +1,26 @@
 package lexer
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"unicode/utf8"
 
 	types "github.com/KyAnhVo/goviz/token"
 	"github.com/KyAnhVo/goviz/util"
 )
 
-type Lexer struct {
-	src []rune
-	ptr int
+// this is essentially a full program invariant. Panics if not followed.
+const MAX_PEEK_LENGTH = 3
 
-	extraBuf           rune
+type Lexer struct {
+	src      bufio.Scanner
+	peekBuf  *util.Queue[rune]
+	extraBuf rune
+
 	currentChar        rune
 	canInsertSemicolon bool
+	isEof              bool
 
 	prevLineLen int
 	pos         types.Pos
@@ -74,7 +80,15 @@ func (l *Lexer) GetNextToken() (types.Token, types.Pos, error) {
 				continue
 			}
 		} else if isLetter(c1) { // Variable length starts here -----------------------------------
-			token, pos = l.getIdentifierOrKeyword()
+			var err error
+			token, pos, err = l.getIdentifierOrKeyword()
+			if err != nil {
+				pos = l.pos
+				return types.TokenErr, types.PosErr, fmt.Errorf(
+					"Error lexing: line %d, column %d, position %d: %w",
+					pos.Line, pos.Column, pos.Pos, err,
+				)
+			}
 		} else if twoChar == "//" {
 			l.getLineComment()
 			continue
@@ -101,16 +115,35 @@ func (l *Lexer) GetNextToken() (types.Token, types.Pos, error) {
 			pos = newPos
 
 		} else if tripleCharOperators.Contains(threeChars) { // 3 char start here ------------------
-			_, pos = l.getNextChar()
-			l.getNextChar()
-			l.getNextChar()
+			for range 3 {
+				_, _, err := l.getNextChar()
+				if err != nil {
+					return types.TokenErr, types.PosErr, fmt.Errorf(
+						"Lexer.GetNextToken: line %d, column %d, position %d: %w",
+						l.pos.Line, l.pos.Column, l.pos.Pos, err,
+					)
+				}
+			}
 			token = types.TokenOperator(threeChars)
 		} else if doubleCharOperators.Contains(twoChar) { // 2 char start here ------------------
-			_, pos = l.getNextChar()
-			l.getNextChar()
+			for range 2 {
+				_, _, err := l.getNextChar()
+				if err != nil {
+					return types.TokenErr, types.PosErr, fmt.Errorf(
+						"Lexer.GetNextToken: line %d, column %d, position %d: %w",
+						l.pos.Line, l.pos.Column, l.pos.Pos, err,
+					)
+				}
+			}
 			token = types.TokenOperator(twoChar)
 		} else if singleCharOperators.Contains(c1) { // 1 char start here ---------------------
-			_, pos = l.getNextChar()
+			_, _, err := l.getNextChar()
+			if err != nil {
+				return types.TokenErr, types.PosErr, fmt.Errorf(
+					"Lexer.GetNextToken: line %d, column %d, position %d: %w",
+					l.pos.Line, l.pos.Column, l.pos.Pos, err,
+				)
+			}
 			token = types.TokenOperator(string(c1))
 		} else if c1 == '"' {
 			newToken, newPos, err := l.getInterpretedStringToken()
@@ -158,28 +191,43 @@ func (l *Lexer) GetNextToken() (types.Token, types.Pos, error) {
 
 // ---------------------------- Utility ----------------------------
 
-func NewLexer(src []rune) *Lexer {
-	return &Lexer{
-		src: src,
-		ptr: 0,
+func NewLexer(src bufio.Scanner) (*Lexer, error) {
+	src.Split(bufio.ScanRunes)
 
-		extraBuf:           '\u0000',
+	q := util.NewQueue[rune](MAX_PEEK_LENGTH)
+
+	for range MAX_PEEK_LENGTH {
+		hasScan := src.Scan()
+		if !hasScan {
+			return nil, errors.New(
+				"File too short (file starts with \"package\" min 7 words)")
+		}
+		c, _ := utf8.DecodeRune(src.Bytes())
+		q.Enqueue(c)
+	}
+
+	return &Lexer{
+		src:      src,
+		peekBuf:  q,
+		extraBuf: '\u0000',
+
 		currentChar:        '\u0000',
 		canInsertSemicolon: false,
+		isEof:              false,
 
 		pos: types.Pos{
 			Line:   1,
 			Column: 0,
 			Pos:    0,
 		},
-	}
+	}, nil
 }
 
 func (l *Lexer) peekNextChar() rune {
 	return l.peekOffset(1)
 }
 
-func (l *Lexer) getNextChar() (rune, types.Pos) {
+func (l *Lexer) getNextChar() (rune, types.Pos, error) {
 	l.currentChar = l.peekNextChar()
 
 	var currentPos types.Pos
@@ -191,15 +239,36 @@ func (l *Lexer) getNextChar() (rune, types.Pos) {
 			l.extraBuf = '\u0000'
 		} else {
 			// case 2: extrabuf is empty.
-			// Thus next char src[ptr].
+			// Thus next char is from peekBuf,
+			// and we advance the scanner
 			currentPos = l.adjustPos(l.currentChar)
-			l.ptr += 1
+			l.peekBuf.Dequeue()
+
+			// enqueue the buffer
+			if l.isEof {
+				l.peekBuf.Enqueue('\u0000')
+			} else {
+				scanned := l.src.Scan()
+				if !scanned {
+					if l.src.Err() == nil {
+						l.isEof = true
+					} else {
+						return utf8.RuneError, types.PosErr, fmt.Errorf("File error: %w", l.src.Err())
+					}
+				} else {
+					c, _ := utf8.DecodeRune(l.src.Bytes())
+					if c == utf8.RuneError {
+						return utf8.RuneError, types.PosErr, errors.New("Invalid utf8 in file")
+					}
+					l.peekBuf.Enqueue(c)
+				}
+			}
 		}
 	} else {
 		currentPos = types.PosEOF
 	}
 
-	return l.currentChar, currentPos
+	return l.currentChar, currentPos, nil
 }
 
 func (l *Lexer) getCurrentPos() types.Pos {
@@ -230,23 +299,25 @@ func (l *Lexer) adjustPos(c rune) types.Pos {
 
 func (l *Lexer) peekOffset(offset int) rune {
 	if offset == 0 {
-		panic("offset must be positive")
+		panic("peekOffset: offset must be positive")
+	} else if offset > MAX_PEEK_LENGTH {
+		panic("peekOffset: offset > MAX_PEEK_LENGTH")
 	}
 
 	// induction base case: for next char, offset = 1,
 	// thus we must subtract from offset
 	// inductive step: trivial
-	next := l.ptr + offset - 1
+	next := offset - 1
 	if l.extraBuf != '\u0000' {
 		next -= 1
 	}
-	if next < l.ptr { // if this is true, l.extraBuffer must be nonempty
+
+	if next < 0 {
 		return l.extraBuf
+	} else {
+		c, _ := l.peekBuf.At(next)
+		return c
 	}
-	if len(l.src) > next {
-		return l.src[next]
-	}
-	return ('\u0000')
 }
 
 var insertSemicolonTokenTypes = util.NewSet([]types.TokenType{

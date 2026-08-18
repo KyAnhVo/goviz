@@ -76,7 +76,10 @@ func (l *Lexer) getDecimalToken() (types.Token, types.Pos, error) {
 	if l.peekNextChar() == '.' {
 		// suppose we start with a dot, then we use this rule:
 		// decimalFloat := "." decimal_digits [ decimal_exponent ] .
-		c, pos := l.getNextChar()
+		c, pos, err := l.getNextChar()
+		if err != nil {
+			return types.TokenErr, types.PosErr, fmt.Errorf("Number: %w", err)
+		}
 		builder.WriteRune(c)
 
 		digits, _, err := l.getDigits(isDecimalDigit)
@@ -165,10 +168,10 @@ func (l *Lexer) getDecimalToken() (types.Token, types.Pos, error) {
 func (l *Lexer) getBinaryToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
-	c1, pos := l.getNextChar()
+	c1, pos, _ := l.getNextChar()
 	builder.WriteRune(c1)
 
-	c2, _ := l.getNextChar()
+	c2, _, _ := l.getNextChar()
 	builder.WriteRune(c2)
 
 	if c := l.peekNextChar(); c == '_' {
@@ -193,10 +196,10 @@ func (l *Lexer) getBinaryToken() (types.Token, types.Pos, error) {
 func (l *Lexer) getOctalToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
-	c1, pos := l.getNextChar()
+	c1, pos, _ := l.getNextChar()
 	builder.WriteRune(c1)
 
-	c2, _ := l.getNextChar()
+	c2, _, _ := l.getNextChar()
 	builder.WriteRune(c2)
 
 	if c := l.peekNextChar(); c == '_' {
@@ -221,10 +224,10 @@ func (l *Lexer) getOctalToken() (types.Token, types.Pos, error) {
 func (l *Lexer) getHexToken() (types.Token, types.Pos, error) {
 	var builder strings.Builder
 
-	c1, pos := l.getNextChar()
+	c1, pos, _ := l.getNextChar()
 	builder.WriteRune(c1)
 
-	c2, _ := l.getNextChar()
+	c2, _, _ := l.getNextChar()
 	builder.WriteRune(c2)
 
 	integer, fractional, err := l.hexMantissa()
@@ -273,7 +276,7 @@ func (l *Lexer) getDigits(verifyDigit func(rune) bool) (string, types.Pos, error
 		return "", types.PosErr, errors.New("digts error: digits must start with a digit")
 	}
 	builder.WriteRune(c)
-	_, pos := l.getNextChar()
+	_, pos, _ := l.getNextChar()
 
 	// { ["_"] digit }
 	c = l.peekNextChar()
