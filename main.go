@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"io"
@@ -20,32 +21,40 @@ func lexerCheck() {
 	flag.Parse()
 
 	var output io.Writer
-	var file *os.File
+	var out, in *os.File
 	var err error
 
 	if *outputFile == "stdout" {
 		output = os.Stdout
 	} else {
-		file, err = os.Create(*outputFile)
+		out, err = os.Create(*outputFile)
 		if err != nil {
-			fmt.Println("Error creating file:", err)
+			fmt.Println("Error creating file:\n", err)
 			return
 		}
-		defer file.Close()
+		defer out.Close()
 
-		output = file
+		output = out
 	}
 
 	if *inputFile == "" {
 		fmt.Println("No input file stated")
 		return
-	}
-	content, err := os.ReadFile(*inputFile)
-	if err != nil {
-		fmt.Println("Error opening file:", err)
+	} else {
+		in, err = os.Open(*inputFile)
+		if err != nil {
+			fmt.Println("Error reading file:\n", err)
+			return
+		}
+		defer in.Close()
+
 	}
 
-	l := lexer.NewLexer([]rune(string(content)))
+	l, err := lexer.NewLexer(*bufio.NewScanner(in))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s", err.Error())
+		return
+	}
 
 	var token types.Token
 	var pos types.Pos

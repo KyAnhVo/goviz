@@ -27,7 +27,7 @@ func TestRune(t *testing.T) {
 		// TODO: add error tests
 	}
 	for _, tc := range tcs {
-		l := NewLexer([]rune(tc.Src))
+		l := createLexer(tc.Src)
 		token, _, err := l.getRuneToken()
 		if tc.Err && err != nil {
 			continue
@@ -83,7 +83,7 @@ func TestString(t *testing.T) {
 		// TODO: add error tests
 	}
 	for _, tc := range tcs {
-		l := NewLexer([]rune(tc.Src + " "))
+		l := createLexer(tc.Src + " ")
 		token, _, err := l.getInterpretedStringToken()
 		if tc.Err && err != nil {
 			continue

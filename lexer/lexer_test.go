@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"bufio"
 	"strings"
 	"testing"
 
@@ -8,6 +9,11 @@ import (
 )
 
 // ----------------------- TEST SUITE HELPERS -----------------------
+
+func createLexer(s string) *Lexer {
+	l, _ := NewLexer(*bufio.NewScanner(strings.NewReader(s)))
+	return l
+}
 
 func checkRune(t *testing.T, label string, want rune, got rune) {
 	t.Helper()
@@ -48,7 +54,7 @@ func TestCharRead(t *testing.T) {
 	var builder strings.Builder
 	builder.WriteString("abc\n")
 	builder.WriteString("de\n")
-	l := NewLexer([]rune(builder.String()))
+	l := createLexer(builder.String())
 
 	tcs := []TestCase{
 		{'a', types.Pos{Line: 1, Column: 1, Pos: 1}},
@@ -61,7 +67,7 @@ func TestCharRead(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		cNext, pNext := l.getNextChar()
+		cNext, pNext, _ := l.getNextChar()
 		cCurr, pCurr := l.getCurrentChar()
 		checkRune(t, "getNext then getCurr", cNext, cCurr)
 		checkPos(t, "getNext then getCurr", pNext, pCurr)
@@ -120,9 +126,9 @@ func TestComment(t *testing.T) {
 	}
 
 	for _, tc := range tcs {
-		l := NewLexer([]rune(tc.Src))
+		l := createLexer(tc.Src)
 		tc.Function(l)
-		c, pos := l.getNextChar()
+		c, pos, _ := l.getNextChar()
 		checkRune(t, tc.Label, tc.Rune, c)
 		checkPos(t, tc.Label, tc.Position, pos)
 	}
