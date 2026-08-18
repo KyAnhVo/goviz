@@ -2,6 +2,8 @@ package util
 
 import "errors"
 
+// ------------------------------------ Hash Set -----------------------------------
+
 type Set[T comparable] map[T]struct{}
 
 func NewSet[T comparable](lst []T) Set[T] {
@@ -17,12 +19,13 @@ func (s Set[T]) Contains(val T) bool {
 	return ok
 }
 
+// --------------------------- FIFO Queue -----------------------------
+
 type Queue[T any] struct {
 	buf  []T
 	cap  int
 	len  int
 	head int
-	tail int
 }
 
 func NewQueue[T any](cap int) *Queue[T] {
