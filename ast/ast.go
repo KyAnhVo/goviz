@@ -16,17 +16,3 @@ type Import struct {
 	Name string
 	Src  string
 }
-
-// ------------------ Types -------------------
-
-type Type interface {
-	typeNode()
-}
-
-type Struct struct{}
-
-func (st *Struct) typeNode() {}
-
-type Function struct{}
-
-func (f *Function) typeNode() {}
