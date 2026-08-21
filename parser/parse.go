@@ -19,9 +19,11 @@ func (p *Parser) Parse() (ast.AST, error) {
 		return ast, err
 	}
 
-	for topLevelDeclStarters.Contains(p.currToken.token) {
-		p.topLevelDecl()
-	}
+	/*
+		for topLevelDeclStarters.Contains(p.currToken.token) {
+			p.topLevelDecl()
+		}
+	*/
 
 	return ast, nil
 }
@@ -100,6 +102,7 @@ func (p *Parser) importDecls() (ast.Imports, error) {
 		if err != nil {
 			return []ast.Import{}, err
 		}
+		p.advance()
 	}
 	return imports, nil
 }

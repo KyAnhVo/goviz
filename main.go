@@ -7,7 +7,9 @@ import (
 	"io"
 	"log"
 	"os"
+)
 
+import (
 	"github.com/KyAnhVo/goviz/lexer"
 	"github.com/KyAnhVo/goviz/parser"
 	"github.com/KyAnhVo/goviz/token"
