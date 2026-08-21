@@ -17,6 +17,8 @@ const        fallthrough  if           range        type
 continue     for          import       return       var
 */
 
+// Also, true and false.
+
 package lexer
 
 import (
@@ -50,6 +52,8 @@ func (l *Lexer) getIdentifierOrKeyword() (types.Token, types.Pos, error) {
 	_, isKeyword := keywordSet[string(token.Value)]
 	if isKeyword {
 		token.Type = types.TokenTypeKeyword
+	} else if token.Value == "true" || token.Value == "false" {
+		token.Type = types.TokenTypeBooleanLiteral
 	} else {
 		token.Type = types.TokenTypeIdentifier
 	}

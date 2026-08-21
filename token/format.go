@@ -1,6 +1,9 @@
-package types
+package token
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 func FormatRune(c rune) string {
 	switch c {
@@ -30,4 +33,8 @@ func FormatToken(token Token) string {
 	}
 	builder.WriteString(" >")
 	return builder.String()
+}
+
+func FormatPos(pos Pos) string {
+	return fmt.Sprintf("line: %d, column: %d, pos: %d", pos.Line, pos.Column, pos.Pos)
 }

@@ -14,7 +14,7 @@ import (
 const MAX_PEEK_LENGTH = 3
 
 type Lexer struct {
-	src      bufio.Scanner
+	src      *bufio.Scanner
 	peekBuf  *util.Queue[rune]
 	extraBuf rune
 
@@ -191,7 +191,7 @@ func (l *Lexer) GetNextToken() (types.Token, types.Pos, error) {
 
 // ---------------------------- Utility ----------------------------
 
-func NewLexer(src bufio.Scanner) (*Lexer, error) {
+func NewLexer(src *bufio.Scanner) (*Lexer, error) {
 	src.Split(bufio.ScanRunes)
 
 	q := util.NewQueue[rune](MAX_PEEK_LENGTH)

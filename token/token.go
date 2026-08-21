@@ -1,4 +1,4 @@
-package types
+package token
 
 type Pos struct {
 	Line   int
@@ -24,23 +24,24 @@ type TokenType string
 const (
 	// Lon-language emit tokens
 
-	TokenTypeErr        TokenType = "Err"
+	TokenTypeErr        TokenType = "ERR"
 	TokenTypeEof        TokenType = "EOF"
-	TokenTypeWhitespace TokenType = "Whitespace"
+	TokenTypeWhitespace TokenType = "WHITESPACE"
 
 	// Language token
 
-	TokenTypeIdentifier TokenType = "Identifier"
-	TokenTypeKeyword    TokenType = "Keyword"
-	TokenTypeOperator   TokenType = "Operator"
+	TokenTypeIdentifier TokenType = "IDENT"
+	TokenTypeKeyword    TokenType = "KEYWORD"
+	TokenTypeOperator   TokenType = "OP"
 
 	// Langauge literals tokens
 
-	TokenTypeStringLiteral    TokenType = "StringLiteral"
-	TokenTypeRuneLiteral      TokenType = "RuneLiteral"
-	TokenTypeIntLiteral       TokenType = "IntLiteral"
-	TokenTypeFloatLiteral     TokenType = "FloatLiteral"
-	TokenTypeImaginaryLiteral TokenType = "ImaginaryLiteral"
+	TokenTypeStringLiteral    TokenType = "STRING_LIT"
+	TokenTypeRuneLiteral      TokenType = "RUNE_LIT"
+	TokenTypeIntLiteral       TokenType = "INT_LIT"
+	TokenTypeFloatLiteral     TokenType = "FLOAT_LIT"
+	TokenTypeImaginaryLiteral TokenType = "IMAGINARY_LIT"
+	TokenTypeBooleanLiteral   TokenType = "BOOL_LIT"
 )
 
 // A token has a type and a value (source code value essentially)

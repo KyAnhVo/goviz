@@ -5,64 +5,102 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
 
 	"github.com/KyAnhVo/goviz/lexer"
-	types "github.com/KyAnhVo/goviz/token"
+	"github.com/KyAnhVo/goviz/parser"
+	"github.com/KyAnhVo/goviz/token"
+)
+
+const (
+	noneMode   string = "none"
+	lexerMode  string = "l"
+	parserMode string = "p"
 )
 
 func main() {
-	lexerCheck()
-}
-
-func lexerCheck() {
 	inputFile := flag.String("from", "", "File to lex from")
 	outputFile := flag.String("to", "stdout", "to: 'stdout' | file path")
+	modeFlag := flag.String("mode", "none", "mode: 'l' | 'p' | 'none'")
+
+	// flag processing
 	flag.Parse()
+	if inputFile == nil {
+		io.WriteString(os.Stderr, "Must have input file")
+		return
+	}
+	if *modeFlag != noneMode && *modeFlag != lexerMode && *modeFlag != parserMode {
+		log.Fatalf("Mode flag must be %s, %s, or %s", noneMode, lexerMode, parserMode)
+		return
+	}
 
-	var output io.Writer
-	var out, in *os.File
+	var output *os.File
 	var err error
-
 	if *outputFile == "stdout" {
 		output = os.Stdout
 	} else {
-		out, err = os.Create(*outputFile)
+		output, err = os.Create(*outputFile)
 		if err != nil {
-			fmt.Println("Error creating file:\n", err)
-			return
+			log.Fatalf("Lexer create error: %s", err.Error())
+			os.Exit(1)
 		}
-		defer out.Close()
-
-		output = out
 	}
 
-	if *inputFile == "" {
-		fmt.Println("No input file stated")
-		return
-	} else {
-		in, err = os.Open(*inputFile)
-		if err != nil {
-			fmt.Println("Error reading file:\n", err)
-			return
-		}
-		defer in.Close()
-
-	}
-
-	l, err := lexer.NewLexer(*bufio.NewScanner(in))
+	l, err := createLexer(*inputFile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s", err.Error())
-		return
+		log.Fatalf("Lexer create error: %s", err.Error())
+		os.Exit(1)
+	}
+	p, err := parser.New(l)
+	if err != nil {
+		log.Fatalf("Parser create error: %s", err.Error())
+		os.Exit(1)
 	}
 
-	var token types.Token
-	var pos types.Pos
-	token, pos, err = l.GetNextToken()
-	for pos != types.PosEOF {
-		output.Write(fmt.Appendf(
-			[]byte(""), "Token: %s\nPos: %+v\n\n", types.FormatToken(token), pos,
-		))
-		token, pos, err = l.GetNextToken()
+	if *modeFlag == lexerMode {
+		runLexer(l, output)
 	}
+
+	if *modeFlag == parserMode {
+		runParser(p, output)
+	}
+}
+
+func createLexer(inputFile string) (*lexer.Lexer, error) {
+	file, err := os.Open(inputFile)
+	if err != nil {
+		return nil, err
+	}
+
+	scanner := bufio.NewScanner(file)
+	return lexer.NewLexer(scanner)
+}
+
+func runLexer(l *lexer.Lexer, output *os.File) {
+	var tok token.Token
+	var err error
+	var pos token.Pos
+
+	tok, pos, err = l.GetNextToken()
+	for pos != token.PosEOF {
+		if err != nil {
+			log.Fatalf("Error: %s", err.Error())
+			os.Exit(1)
+		}
+		io.WriteString(output,
+			fmt.Sprintf("%s\n%s\n\n",
+				token.FormatToken(tok), token.FormatPos(pos)))
+		tok, pos, err = l.GetNextToken()
+	}
+}
+
+func runParser(p *parser.Parser, output *os.File) {
+	ast, err := p.Parse()
+	if err != nil {
+		log.Fatalf("Error: %s", err.Error())
+		os.Exit(1)
+	}
+	io.WriteString(output, fmt.Sprintf(
+		"%+v", ast))
 }

@@ -11,7 +11,7 @@ import (
 // ----------------------- TEST SUITE HELPERS -----------------------
 
 func createLexer(s string) *Lexer {
-	l, _ := NewLexer(*bufio.NewScanner(strings.NewReader(s)))
+	l, _ := NewLexer(bufio.NewScanner(strings.NewReader(s)))
 	return l
 }
 
