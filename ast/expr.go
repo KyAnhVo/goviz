@@ -15,17 +15,18 @@ const (
 type Expression interface {
 	ExpressionType() ExpressionType
 	Operator() string
-	Parameters() []*Expression
+	Parameters() []Expression
 }
 
+// Unary expressions in Golang is strictly prefix.
 type UnaryExpression struct {
-	operator  token.Token
-	parameter *Expression
+	Op      token.Token
+	Operand Expression
 }
 
 func (expr *UnaryExpression) ExpressionType() ExpressionType { return UnaryExpr }
 func (expr *UnaryExpression) Operator() string {
-	switch expr.operator {
+	switch expr.Op {
 	case token.TokenAdd:
 		return "positive"
 	case token.TokenSub:
@@ -43,18 +44,19 @@ func (expr *UnaryExpression) Operator() string {
 	}
 	return ""
 }
-func (expr *UnaryExpression) Parameters() []*Expression { return []*Expression{expr.parameter} }
+func (expr *UnaryExpression) Parameters() []Expression { return []Expression{expr.Operand} }
 
+// Binary expressions in golang are of the form (operand OP operand)
 type BinaryExpression struct {
-	operator token.Token
-	lOperand *Expression
-	rOperand *Expression
+	Op       token.Token
+	LOperand *Expression
+	ROperand *Expression
 }
 
 func (expr *BinaryExpression) ExpressionType() ExpressionType { return UnaryExpr }
-func (expr *BinaryExpression) Operator() string               { return expr.operator.Value }
+func (expr *BinaryExpression) Operator() string               { return expr.Op.Value }
 func (expr *BinaryExpression) Parameters() []*Expression {
-	return []*Expression{expr.lOperand, expr.rOperand}
+	return []*Expression{expr.LOperand, expr.ROperand}
 }
 
 var unaryOps util.Set[token.Token] = util.NewSet([]token.Token{
@@ -81,20 +83,20 @@ var otherBinaryOps util.Set[token.Token] = util.NewSet([]token.Token{
 	token.TokenLOr, token.TokenLAnd,
 })
 
-func isUnaryOp(tok token.Token) bool { return unaryOps.Contains(tok) }
-func isBinOp(tok token.Token) bool {
-	return isAddOp(tok) || isRelOp(tok) || isMulOp(tok) || otherBinaryOps.Contains(tok)
+func IsUnaryOp(tok token.Token) bool { return unaryOps.Contains(tok) }
+func IsBinOp(tok token.Token) bool {
+	return IsAddOp(tok) || IsRelOp(tok) || IsMulOp(tok) || otherBinaryOps.Contains(tok)
 }
-func isMulOp(tok token.Token) bool { return mulOps.Contains(tok) }
-func isAddOp(tok token.Token) bool { return addOps.Contains(tok) }
-func isRelOp(tok token.Token) bool { return relOps.Contains(tok) }
+func IsMulOp(tok token.Token) bool { return mulOps.Contains(tok) }
+func IsAddOp(tok token.Token) bool { return addOps.Contains(tok) }
+func IsRelOp(tok token.Token) bool { return relOps.Contains(tok) }
 
 func lbp(tok token.Token) int {
-	if isMulOp(tok) {
+	if IsMulOp(tok) {
 		return 50
-	} else if isAddOp(tok) {
+	} else if IsAddOp(tok) {
 		return 40
-	} else if isRelOp(tok) {
+	} else if IsRelOp(tok) {
 		return 30
 	} else if tok == token.TokenLAnd {
 		return 20
@@ -105,6 +107,14 @@ func lbp(tok token.Token) int {
 	}
 }
 
-func rbp(tok token.Token) int {
+func Rbp(tok token.Token) int {
 	return lbp(tok) + 1
+}
+
+func Bp(tok token.Token) int {
+	if IsUnaryOp(tok) {
+		return 100
+	} else {
+		return -1
+	}
 }
